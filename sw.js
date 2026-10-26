@@ -1,6 +1,6 @@
 // Guarda o jogo no celular para abrir sem internet.
 // Ao publicar uma versão nova, aumente o número abaixo para o celular baixar de novo.
-const CACHE = 'salao-v4';
+const CACHE = 'salao-v5';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
