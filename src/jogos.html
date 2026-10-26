@@ -223,6 +223,7 @@ const COLORS = [
   { c: '#FF78B4', d: '#C9468A', l: '#FFBAD9' }, // rosa
 ];
 const INK = '#2B2D52';
+const MYSTERY = { c: '#A9ADC2', d: '#7D8199', l: '#D3D6E3' };
 
 const store = { level: 1, coins: 60, sound: true };
 try { Object.assign(store, JSON.parse(localStorage.getItem('salao.busao') || '{}')); } catch (e) {}
@@ -475,17 +476,58 @@ function genLevel(lv) {
   for (let i = pal.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pal[i], pal[j]] = [pal[j], pal[i]]; }
   const use = pal.slice(0, P.ncol);
   const buses = best.buses.map((b, i) => ({ ...b, id: i, cap: b.len === 3 ? 6 : 4, color: use[Math.floor(rng() * use.length)] }));
-  const order = buses.slice().reverse(), queue = [], active = [];
-  let i = 0;
-  while (i < order.length || active.length) {
-    while (active.length < P.k && i < order.length) { active.push({ c: order[i].color, r: order[i].cap }); i++; }
-    const j = rng() < .3 ? 0 : Math.floor(rng() * active.length);
-    const a = active[j], chunk = Math.min(a.r, 1 + Math.floor(rng() * 3));
-    for (let n = 0; n < chunk; n++) queue.push(a.c);
-    a.r -= chunk;
-    if (!a.r) active.splice(j, 1);
+  const order = buses.slice().reverse();
+  let queue = null, pullAt = null;
+  for (let tries = 0; tries < 40 && !queue; tries++) {
+    const q = [], active = [];
+    let i = 0;
+    while (i < order.length || active.length) {
+      while (active.length < P.k && i < order.length) { active.push({ c: order[i].color, r: order[i].cap }); i++; }
+      const j = rng() < .3 ? 0 : Math.floor(rng() * active.length);
+      const a = active[j], chunk = Math.min(a.r, 1 + Math.floor(rng() * 3));
+      for (let n = 0; n < chunk; n++) q.push(a.c);
+      a.r -= chunk;
+      if (!a.r) active.splice(j, 1);
+    }
+    const sim = simulate(order, q);
+    if (sim && sim.maxS <= OPEN_SLOTS) { queue = q; pullAt = sim.pullAt; }
   }
-  return { P, buses, queue };
+  if (!queue) { // fallback: one bus at a time, always fits
+    queue = []; pullAt = {};
+    for (const b of order) { pullAt[b.id] = queue.length; for (let n = 0; n < b.cap; n++) queue.push(b.color); }
+  }
+  // Barriers on the top edge: a column stays closed until enough passengers have boarded.
+  // The count never exceeds what the reference solution has boarded when it needs that column.
+  const gates = [];
+  if (lv >= 2) {
+    const cand = [];
+    for (let c = 0; c < P.cols; c++) {
+      const ups = buses.filter(b => b.dir === 0 && b.x === c);
+      if (!ups.length) continue;
+      const need = Math.min(...ups.map(b => pullAt[b.id]));
+      if (need >= 8) cand.push({ col: c, need: Math.min(need, 10 + Math.round(queue.length * .2) + Math.floor(rng() * 8)) });
+    }
+    cand.sort((a, b) => b.need - a.need);
+    gates.push(...cand.slice(0, lv >= 8 ? 2 : 1));
+  }
+  // Mystery buses hide their color until their road out is clear.
+  const pHidden = lv >= 3 ? Math.min(.4, .12 + lv * .02) : 0;
+  for (const b of buses) b.hidden = rng() < pHidden;
+  return { P, buses, queue, gates };
+}
+
+const OPEN_SLOTS = 4;
+function simulate(order, q) {
+  const slots = [], pullAt = {};
+  let oi = 0, maxS = 0, pos = 0;
+  while (pos < q.length) {
+    const s = slots.find(s => s.color === q[pos] && s.f < s.cap);
+    if (s) { s.f++; pos++; if (s.f === s.cap) slots.splice(slots.indexOf(s), 1); continue; }
+    if (oi >= order.length) return null;
+    const b = order[oi++]; pullAt[b.id] = pos;
+    slots.push({ color: b.color, cap: b.cap, f: 0 }); maxS = Math.max(maxS, slots.length);
+  }
+  return { maxS, pullAt };
 }
 
 function startLevel(lv) {
@@ -494,9 +536,9 @@ function startLevel(lv) {
     lv, cols: L.P.cols, rows: L.P.rows,
     buses: L.buses.map(b => ({ ...b, state: 'grid', filled: 0, reserved: 0, bump: null, shake: 0, mv: null, lt: 0, slot: -1 })),
     queue: L.queue.map((c, i) => ({ c, d: i + 6 })),
-    slots: Array.from({ length: 8 }, (_, i) => ({ bus: null, locked: i >= 6, vip: i === 0 })),
+    slots: Array.from({ length: 8 }, (_, i) => ({ bus: null, locked: i > OPEN_SLOTS, vip: i === 0 })),
     flyers: [], puffs: [], vipMode: false, over: false, tapped: false, boardT: 0, stuckT: 0, slotFlash: 0, time: 0,
-    total: L.queue.length,
+    total: L.queue.length, gates: L.gates.map(g => ({ ...g, open: false, t: 0 })),
   };
   $('lv-label').textContent = 'Nível ' + lv;
   $('modal').hidden = true;
@@ -531,7 +573,7 @@ function layout() {
   qBottom = qTop + qRows * sp;
   slotY = qBottom + 10;
   slotX0 = (W - (8 * slotW + 7 * slotGap)) / 2;
-  const gTop = slotY + slotH + 22, gBot = H - 8;
+  const gTop = slotY + slotH + 30, gBot = H - 8;
   cell = Math.min((W - 16) / G.cols, (gBot - gTop) / G.rows, 72);
   gx = (W - cell * G.cols) / 2;
   gy = gTop + Math.max(0, (gBot - gTop - cell * G.rows) * .35);
@@ -635,10 +677,19 @@ function tapBus(b) {
       return;
     }
   }
+  const gate = b.dir === 0 && G.gates.find(g => g.col === b.x && !g.open);
+  if (gate) {
+    b.bump = { t: 0, dist: path.length * cell + cell * .1 };
+    gate.shake = .3; sfx('bump'); buzz(25);
+    toast(`A cancela abre com mais ${gate.need - boarded()} embarques`);
+    return;
+  }
   const si = freeSlot();
   if (si < 0) { G.slotFlash = .6; b.shake = .3; sfx('full'); buzz(40); return; }
   launch(b, si, false); sfx('tap');
 }
+
+const boarded = () => G.total - G.queue.length;
 
 function onPointer(e) {
   if (!G || G.over) return;
@@ -716,6 +767,18 @@ function update(dt) {
     }
   }
   // boarding: the front passenger walks to the leftmost parked bus of their color
+  // gates and mystery buses
+  for (const g of G.gates) {
+    if (g.shake > 0) g.shake = Math.max(0, g.shake - dt);
+    if (!g.open && boarded() >= g.need) { g.open = true; sfx('leave'); G.puffs.push(...burst(gx + (g.col + .5) * cell, gy - cell * .2, '#FFC83D', 10)); }
+    if (g.open) g.t = Math.min(1, g.t + dt / .4);
+  }
+  if (G.buses.some(b => b.hidden && b.state === 'grid')) {
+    const occ = occupancy();
+    for (const b of G.buses) if (b.hidden && b.state === 'grid' && exitCells(b, G.cols, G.rows).every(([x, y]) => occ[y * G.cols + x] === -1)) {
+      b.hidden = false; const p = gridPose(b); G.puffs.push(...burst(p.cx, p.cy, COLORS[b.color].c, 10)); sfx('pop');
+    }
+  }
   G.boardT -= dt;
   if (G.boardT <= 0 && G.queue.length) {
     const front = G.queue[0];
@@ -873,7 +936,11 @@ function draw() {
       c.lineWidth = 3; c.strokeStyle = G.vipMode ? `rgba(255,200,61,${.5 + pulse * .5})` : `rgba(255,255,255,${.4 + pulse * .6})`; c.stroke();
       c.restore();
     }
-    drawBus(c, p.cx, p.cy, p.L, p.Wd, p.ang, COLORS[b.color], { arrow: true });
+    if (b.hidden) {
+      drawBus(c, p.cx, p.cy, p.L, p.Wd, p.ang, MYSTERY, {});
+      c.font = `800 ${Math.round(p.Wd * .62)}px "Baloo 2", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = '#fff'; c.fillText('?', p.cx, p.cy + p.Wd * .06);
+    } else drawBus(c, p.cx, p.cy, p.L, p.Wd, p.ang, COLORS[b.color], { arrow: true });
   }
   for (const b of layers[1]) {
     const p = busPose(b);
@@ -893,6 +960,25 @@ function draw() {
     c.beginPath(); c.arc(p.x, p.y, p.r, 0, 7); c.fill();
   }
   c.globalAlpha = 1;
+  // barriers
+  for (const g of G.gates) {
+    const x0 = gx + g.col * cell + cell * .06, w = cell * .88, y = gy - pad * .55, h = Math.max(6, cell * .14);
+    const sh = g.shake ? Math.sin(g.shake * 70) * 2 : 0;
+    c.save(); c.translate(x0 + sh, y); c.rotate(-g.t * Math.PI * .42);
+    rr(c, 0, -h / 2, w, h, h / 2); c.fillStyle = '#FFC83D'; c.fill();
+    c.save(); c.clip(); c.fillStyle = INK;
+    for (let sx = -h; sx < w; sx += h * 1.6) { c.beginPath(); c.moveTo(sx, h / 2); c.lineTo(sx + h * .8, -h / 2); c.lineTo(sx + h * 1.6, -h / 2); c.lineTo(sx + h * .8, h / 2); c.fill(); }
+    c.restore(); c.restore();
+    c.beginPath(); c.arc(x0 + sh, y, h * .7, 0, 7); c.fillStyle = INK; c.fill();
+    if (!g.open) {
+      const left = g.need - boarded(), txt = String(left);
+      c.font = `800 ${Math.round(cell * .32)}px "Baloo 2", sans-serif`;
+      const bw = Math.max(cell * .5, c.measureText(txt).width + 12), bh = cell * .38, bx0 = x0 + w / 2 - bw / 2 + sh, by0 = y - bh - h * .4;
+      rr(c, bx0, by0 + 2, bw, bh, 6); c.fillStyle = 'rgba(43,45,82,.25)'; c.fill();
+      rr(c, bx0, by0, bw, bh, 6); c.fillStyle = '#FFF8F0'; c.fill();
+      c.fillStyle = INK; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, bx0 + bw / 2, by0 + bh / 2 + 1);
+    }
+  }
   // captions
   let caption = '';
   if (toastT > 0) caption = toastMsg;
@@ -900,7 +986,7 @@ function draw() {
   else if (hint) caption = 'Toque num ônibus com a saída livre';
   if (caption) {
     c.font = `800 ${Math.round(clamp(W / 26, 13, 16))}px Nunito, sans-serif`;
-    const w = c.measureText(caption).width + 24, y = gy - pad - 14;
+    const w = c.measureText(caption).width + 24, y = qTop + 14;
     rr(c, W / 2 - w / 2, y - 13, w, 26, 13); c.fillStyle = INK; c.fill();
     c.fillStyle = '#FFF8F0'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(caption, W / 2, y + 1);
   }
@@ -1240,7 +1326,7 @@ window.addEventListener('resize', () => { if (!$('wood').hidden) woodLayout(); }
 window.__art = { drawBus, drawPax, drawBlock, COLORS, rr };
 window.__wood = { state: () => WG, place: woodPlace, fits, SHAPES, open: openWood, trayCenter, geom: () => ({ bx, by, bc }) };
 
-window.__busao = { genLevel, params, exitCells, state: () => G, tapBus, open: openBusGame };
+window.__busao = { genLevel, params, exitCells, state: () => G, tapBus, open: openBusGame, start: lv => startLevel(lv) };
 
 drawThumbs();
 showHome();
