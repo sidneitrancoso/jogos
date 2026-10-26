@@ -130,9 +130,9 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
 .cv-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
 .tet-screen, .bomb-screen { display: flex; flex-direction: column; gap: 6px;
   padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
-.tet-screen { background: #1E2140; color: #FFF8F0; }
-.tet-screen .icon-btn, .tet-screen .coins { background: #2E3360; color: #FFF8F0; box-shadow: 0 3px 0 #12142B; }
-.tet-screen .level-title span { color: #9AA0D0; }
+.tet-screen { background: #18214D; color: #FFF8F0; }
+.tet-screen .icon-btn, .tet-screen .coins { background: #0E1430; color: #FFF8F0; box-shadow: 0 3px 0 #070B1E; }
+.tet-screen .level-title span { color: #A9B4E8; }
 .bomb-screen { background: #4E8F44; color: #FFF8F0; }
 .bomb-screen .icon-btn, .bomb-screen .coins { background: #3B6E33; color: #FFF8F0; box-shadow: 0 3px 0 #28501F; }
 .bomb-screen .level-title span, .bm-pow { color: #DDF2D0; }
@@ -264,7 +264,7 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
 <section id="tet" class="screen tet-screen" hidden>
   <div class="bar">
     <button class="icon-btn" id="t-back" type="button" aria-label="Voltar para a biblioteca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <div class="level-title"><b id="t-score">0</b><span>pontos</span></div>
+    <div class="level-title"><b id="t-score">0</b><span id="t-sub">pontos</span></div>
     <button class="icon-btn" id="t-restart" type="button" aria-label="Começar de novo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg></button>
     <div class="coins best"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" fill="#FFC83D" stroke="#B5740E" stroke-width="1.6" stroke-linejoin="round"/></svg><span id="t-best">0</span></div>
   </div>
@@ -498,8 +498,8 @@ function drawThumbs() {
   drawBus(c, 78, 80, 50, 28, -Math.PI / 2, COLORS[2], { arrow: true });
   drawPax(c, 96, 101, 7, COLORS[3]); drawPax(c, 80, 101, 7, COLORS[3]); drawPax(c, 64, 101, 7, COLORS[6]);
   c = setupThumb($('thumb-tet'));
-  c.fillStyle = '#1E2140'; rr(c, 0, 0, 112, 112, 16); c.fill();
-  const tc = (x, y, k) => { const C = COLORS[k]; rr(c, x + 1, y + 1, 16, 16, 3); c.fillStyle = C.d; c.fill(); rr(c, x + 1, y + 1, 16, 14, 3); c.fillStyle = C.c; c.fill(); };
+  c.fillStyle = '#202C64'; rr(c, 0, 0, 112, 112, 16); c.fill();
+  const tc = (x, y, k) => tetCell(c, x, y, 18, k);
   [[1, 5, 4], [2, 5, 4], [3, 5, 4], [4, 5, 4], [0, 4, 0], [1, 4, 0], [4, 4, 1], [5, 4, 1], [5, 3, 1], [0, 3, 5], [3, 1, 6], [2, 2, 6], [3, 2, 6], [4, 2, 6]]
     .forEach(([x, y, k]) => tc(2 + x * 18, 2 + y * 18 + 2, k));
   c = setupThumb($('thumb-bomb'));
@@ -523,7 +523,7 @@ function showHome() {
   $('game').hidden = true; $('wood').hidden = true; $('home').hidden = false; $('modal').hidden = true;
   $('bus-pill').textContent = 'Nível ' + store.level;
   $('wood-pill').textContent = store.woodBest ? 'Recorde ' + store.woodBest : 'Jogar';
-  $('tet-pill').textContent = store.tetBest ? 'Recorde ' + store.tetBest : 'Jogar';
+  $('tet-pill').textContent = store.tetStage > 1 ? 'Fase ' + tetStageName(store.tetStage) : 'Jogar';
   $('bomb-pill').textContent = store.bombBest ? 'Até o nível ' + store.bombBest : 'Jogar';
   $('tet').hidden = true; $('bomb').hidden = true;
   running = false; woodRunning = false; tetRunning = false; bombRunning = false;
@@ -1500,11 +1500,33 @@ const tcv = $('tcv'), tctx = tcv.getContext('2d'), twrap = $('t-wrap');
 let TG = null, tetRunning = false, tLast = 0;
 let TWd = 0, THt = 0, tS = 24, tX = 6, tY = 4, tSideX = 0;
 
-function tetNew() {
-  TG = { board: new Int8Array(TW * TH), bag: [], next: [], hold: null, canHold: true, cur: null,
-    score: 0, lines: 0, level: 1, dropT: 0, lockT: 0, lockMoves: 0, over: false, clearing: null, pops: [], time: 0, shown: 0 };
+// mode 'fases': the well starts full of colored columns with a gap, clear the goal to pass; 'classico': endless
+const tetStageName = n => `${Math.floor((n - 1) / 5) + 1}-${(n - 1) % 5 + 1}`;
+const tetGoal = n => Math.min(20, 3 + n);
+function tetNew(mode = TG ? TG.mode : 'fases') {
+  const stage = store.tetStage || 1;
+  TG = { mode, stage, goal: mode === 'fases' ? tetGoal(stage) : 0, board: new Int8Array(TW * TH), bag: [], next: [], hold: null, canHold: true, cur: null,
+    score: 0, lines: 0, level: mode === 'fases' ? 1 + Math.floor((stage - 1) / 3) : 1, dropT: 0, lockT: 0, lockMoves: 0, over: false, clearing: null, pops: [], time: 0, shown: 0 };
+  if (mode === 'fases') tetFill(stage);
   for (let i = 0; i < 3; i++) TG.next.push(tetDraw());
   tetSpawn(); tetHud();
+}
+function tetFill(n) {
+  // colored stripes like the ad: blue, cyan, green, yellow, orange, red, purple; one column left empty (two from stage 8)
+  const cols = [5, 5, 4, 4, 3, 2, 2, 1, 0, 6];
+  const base = Math.min(TH - 7, 4 + Math.floor(n * .8));
+  const gaps = new Set([1 + Math.floor(Math.random() * (TW - 2))]);
+  if (n >= 8) gaps.add(Math.floor(Math.random() * TW));
+  let h = base;
+  for (let x = 0; x < TW; x++) {
+    h = Math.max(2, Math.min(TH - 6, h + Math.floor(Math.random() * 5) - 2));
+    const top = gaps.has(x) ? 0 : h;
+    for (let y = 0; y < top; y++) {
+      // a few holes from stage 12 on
+      if (n >= 12 && y > 1 && Math.random() < .04) continue;
+      TG.board[(TH - 1 - y) * TW + x] = cols[x] + 1;
+    }
+  }
 }
 function tetDraw() {
   if (!TG.bag.length) {
@@ -1589,9 +1611,21 @@ function tetFinishClear() {
   const gain = [0, 100, 300, 500, 800][rows.length] * TG.level;
   TG.score += gain; TG.lines += rows.length;
   TG.pops.push({ text: rows.length === 4 ? 'Quádrupla! +' + gain : '+' + gain, y: tY + (rows[0] + .5) * tS, t: 0 });
-  TG.level = 1 + Math.floor(TG.lines / 10);
+  if (TG.mode === 'classico') TG.level = 1 + Math.floor(TG.lines / 10);
   TG.clearing = null;
+  if (TG.mode === 'fases' && TG.lines >= TG.goal) { tetStageWon(); return; }
   tetSpawn(); tetHud();
+}
+function tetStageWon() {
+  TG.over = true; TG.won = true; sfx('win'); buzz(30);
+  const name = tetStageName(TG.stage);
+  store.tetStage = TG.stage + 1;
+  if (TG.score > (store.tetBest || 0)) store.tetBest = TG.score;
+  save(); tetHud();
+  setTimeout(() => modal(`Fase ${name} concluída!`, `Você limpou ${TG.lines} linhas e fez ${TG.score} pontos.`, [
+    { label: 'Próxima fase', fn: () => tetNew('fases') },
+    { label: 'Biblioteca', cls: 'ghost', fn: showHome },
+  ]), 500);
 }
 function tetGameOver() {
   if (TG.over) return;
@@ -1599,13 +1633,21 @@ function tetGameOver() {
   const best = store.tetBest || 0, rec = TG.score > best;
   if (rec) { store.tetBest = TG.score; save(); }
   tetHud();
+  if (TG.mode === 'fases') {
+    setTimeout(() => modal('Não deu!', `As peças chegaram no topo. Faltaram ${TG.goal - TG.lines} linhas para passar da fase ${tetStageName(TG.stage)}.`, [
+      { label: 'Tentar de novo', fn: () => tetNew('fases') },
+      { label: 'Biblioteca', cls: 'ghost', fn: showHome },
+    ]), 400);
+    return;
+  }
   setTimeout(() => modal('Fim de jogo!', rec ? `Novo recorde: ${TG.score} pontos!` : `Você fez ${TG.score} pontos e ${TG.lines} linhas. Seu recorde é ${best}.`, [
-    { label: 'Jogar de novo', fn: tetNew },
+    { label: 'Jogar de novo', fn: () => tetNew('classico') },
     { label: 'Biblioteca', cls: 'ghost', fn: showHome },
   ]), 400);
 }
 function tetHud() {
   $('t-best').textContent = Math.max(store.tetBest || 0, TG ? TG.score : 0);
+  $('t-sub').textContent = TG && TG.mode === 'fases' ? 'Fase ' + tetStageName(TG.stage) : 'pontos';
 }
 const tetInterval = () => Math.max(.06, .8 * Math.pow(.86, TG.level - 1));
 
@@ -1640,11 +1682,18 @@ function tetLayout() {
   tSideX = tX + TW * tS + 10;
 }
 function tetCell(c, x, y, s, col, alpha = 1) {
-  const C = COLORS[col];
+  // square beveled block: light top/left edges, dark bottom/right, flat face in the middle
+  const C = COLORS[col], b = Math.max(2, s * .14), x2 = x + s - .5, y2 = y + s - .5;
+  x += .5; y += .5;
   c.globalAlpha = alpha;
-  rr(c, x + 1, y + 1, s - 2, s - 2, s * .18); c.fillStyle = C.d; c.fill();
-  rr(c, x + 1, y + 1, s - 2, s - 2 - s * .12, s * .18); c.fillStyle = C.c; c.fill();
-  rr(c, x + s * .22, y + s * .18, s * .34, s * .18, s * .09); c.fillStyle = 'rgba(255,255,255,.45)'; c.fill();
+  c.fillStyle = C.d; c.fillRect(x, y, x2 - x, y2 - y);
+  c.beginPath(); c.moveTo(x, y); c.lineTo(x2, y); c.lineTo(x2 - b, y + b); c.lineTo(x + b, y + b); c.lineTo(x + b, y2 - b); c.lineTo(x, y2); c.closePath();
+  c.fillStyle = C.l; c.fill();
+  const g = c.createLinearGradient(0, y + b, 0, y2 - b); g.addColorStop(0, C.c); g.addColorStop(1, C.d);
+  c.fillStyle = C.c; c.fillRect(x + b, y + b, x2 - x - 2 * b, y2 - y - 2 * b);
+  c.fillStyle = g; c.globalAlpha = alpha * .35; c.fillRect(x + b, y + b, x2 - x - 2 * b, y2 - y - 2 * b);
+  c.globalAlpha = alpha * .5; c.fillStyle = 'rgba(255,255,255,.7)'; c.fillRect(x + b, y + b, x2 - x - 2 * b, Math.max(1, s * .06));
+  c.globalAlpha = alpha; c.strokeStyle = 'rgba(10,14,40,.45)'; c.lineWidth = 1; c.strokeRect(x, y, x2 - x, y2 - y);
   c.globalAlpha = 1;
 }
 function tetMini(c, k, cx, cy, s, alpha = 1) {
@@ -1657,10 +1706,19 @@ function tetDrawAll(dt) {
   const c = tctx;
   c.clearRect(0, 0, TWd, THt);
   // well
-  rr(c, tX - 5, tY - 5, TW * tS + 10, TH * tS + 10, 12); c.fillStyle = '#12142B'; c.fill();
-  for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
-    c.fillStyle = (x + y) % 2 ? '#1B1E3D' : '#1E2244';
-    c.fillRect(tX + x * tS, tY + y * tS, tS, tS);
+  rr(c, tX - 5, tY - 5, TW * tS + 10, TH * tS + 10, 10); c.fillStyle = '#0B1030'; c.fill();
+  for (let x = 0; x < TW; x++) {
+    // navy column stripes with a soft vertical sheen, like the ad
+    const g = c.createLinearGradient(tX + x * tS, 0, tX + (x + 1) * tS, 0);
+    g.addColorStop(0, '#202C64'); g.addColorStop(.5, '#26336F'); g.addColorStop(1, '#1C275A');
+    c.fillStyle = g; c.fillRect(tX + x * tS, tY, tS, TH * tS);
+    c.fillStyle = 'rgba(8,12,36,.55)'; c.fillRect(tX + x * tS, tY, 1, TH * tS);
+  }
+  if (TG.mode === 'fases') {
+    // goal marker: progress bar along the top of the well
+    const f = Math.min(1, TG.lines / TG.goal);
+    c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(tX, tY - 4, TW * tS, 3);
+    c.fillStyle = '#FFD43B'; c.fillRect(tX, tY - 4, TW * tS * f, 3);
   }
   const flash = TG.clearing ? TG.clearing.rows : [];
   for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
@@ -1683,16 +1741,16 @@ function tetDrawAll(dt) {
       if (p.m[y][x] && p.y + y >= 0) tetCell(c, tX + (p.x + x) * tS, tY + (p.y + y) * tS, tS, TET[p.k].col);
   }
   // side panel
-  const sw = tS * 4.4, label = (t, y) => { c.fillStyle = '#9AA0D0'; c.font = `800 ${Math.round(tS * .42)}px Nunito, sans-serif`; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillText(t, tSideX + 4, y); };
+  const sw = tS * 4.4, label = (t, y) => { c.fillStyle = '#A9B4E8'; c.font = `800 ${Math.round(tS * .42)}px Nunito, sans-serif`; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillText(t, tSideX + 4, y); };
   let y = tY;
   label('GUARDAR', y); y += tS * .7;
-  rr(c, tSideX, y, sw, tS * 2.8, 10); c.fillStyle = TG.canHold ? '#262A52' : '#1B1E3D'; c.fill();
+  rr(c, tSideX, y, sw, tS * 2.8, 10); c.fillStyle = TG.canHold ? '#0E1430' : '#0A0F26'; c.fill();
   if (TG.hold) tetMini(c, TG.hold, tSideX + sw / 2, y + tS * 1.4, tS * .7, TG.canHold ? 1 : .4);
   else { c.fillStyle = '#5A6096'; c.font = `700 ${Math.round(tS * .36)}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('toque aqui', tSideX + sw / 2, y + tS * 1.4); }
   TG.holdBox = { x: tSideX, y, w: sw, h: tS * 2.8 };
   y += tS * 3.4;
   label('PRÓXIMAS', y); y += tS * .7;
-  rr(c, tSideX, y, sw, tS * 7, 10); c.fillStyle = '#262A52'; c.fill();
+  rr(c, tSideX, y, sw, tS * 7, 10); c.fillStyle = '#0E1430'; c.fill();
   TG.next.forEach((k, i) => tetMini(c, k, tSideX + sw / 2, y + tS * (1.2 + i * 2.3), tS * (i ? .55 : .7)));
   y += tS * 7.6;
   const stat = (name, val) => {
@@ -1700,7 +1758,8 @@ function tetDrawAll(dt) {
     c.fillStyle = '#FFF8F0'; c.font = `800 ${Math.round(tS * .8)}px "Baloo 2", sans-serif`; c.textAlign = 'left'; c.textBaseline = 'top';
     c.fillText(String(val), tSideX + 4, y); y += tS * 1.1;
   };
-  stat('NÍVEL', TG.level); stat('LINHAS', TG.lines);
+  if (TG.mode === 'fases') { stat('FASE', tetStageName(TG.stage)); stat('LINHAS', TG.lines + '/' + TG.goal); }
+  else { stat('NÍVEL', TG.level); stat('LINHAS', TG.lines); }
   for (let i = TG.pops.length - 1; i >= 0; i--) {
     const p = TG.pops[i]; p.t += dt;
     if (p.t > 1) { TG.pops.splice(i, 1); continue; }
@@ -1719,9 +1778,17 @@ function tetFrame(t) {
   tetUpdate(dt); tetDrawAll(dt);
   requestAnimationFrame(tetFrame);
 }
+function tetChoose() {
+  if (!TG) tetNew('fases');
+  modal('Chuva de Blocos', `Fases: o poço já começa cheio de colunas coloridas; limpe as linhas pedidas para passar. Clássico: sem fim, até as peças chegarem no topo.`, [
+    { label: 'Fase ' + tetStageName(store.tetStage || 1), fn: () => tetNew('fases') },
+    { label: 'Clássico', cls: 'ghost', fn: () => tetNew('classico') },
+  ]);
+}
 function openTet() {
   $('home').hidden = true; $('tet').hidden = false;
-  tetLayout(); if (!TG || TG.over) tetNew(); else tetHud();
+  tetLayout();
+  if (!TG || TG.over) tetChoose(); else tetHud();
   if (!tetRunning) { tetRunning = true; tLast = performance.now(); requestAnimationFrame(tetFrame); }
 }
 
@@ -1775,13 +1842,15 @@ $('card-tet').addEventListener('click', () => { sfx('tap'); openTet(); });
 $('t-back').addEventListener('click', showHome);
 $('t-restart').addEventListener('click', () => {
   if (!TG) return;
+  if (TG.over) { tetChoose(); return; }
   modal('Começar de novo?', `Você perde os ${TG.score} pontos desta partida.`, [
-    { label: 'Começar de novo', fn: tetNew },
+    { label: 'Começar de novo', fn: () => tetNew() },
+    { label: 'Trocar de modo', cls: 'ghost', fn: tetChoose },
     { label: 'Continuar jogando', cls: 'ghost', fn: () => {} },
   ]);
 });
 window.addEventListener('resize', () => { if (!$('tet').hidden) tetLayout(); });
-window.__tet = { state: () => TG, move: tetMove, rotate: tetRotate, hard: tetHard, hold: tetHold };
+window.__tet = { state: () => TG, start: tetNew, move: tetMove, rotate: tetRotate, hard: tetHard, hold: tetHold };
 
 /* ================= Bombinha ================= */
 const BMC = 13, BMR = 15, B_WALL = 1, B_BRICK = 2;
