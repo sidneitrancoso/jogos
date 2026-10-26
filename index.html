@@ -155,6 +155,38 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
 .bomb-btn svg { width: 54px; height: 54px; }
 .pill.tet { background: #4C84F2; } .pill.bomb { background: #4E8F44; }
 
+/* ---------- Cruzadinha ---------- */
+.cw-screen { display: flex; flex-direction: column; gap: 6px; background: #1F5E6E; color: #FFF8F0;
+  padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+.cw-screen .icon-btn, .cw-screen .coins { background: #17485A; color: #FFF8F0; box-shadow: 0 3px 0 #0E2F3B; }
+.cw-screen .level-title span { color: #BFE3EA; }
+.cw-clue { display: flex; align-items: stretch; gap: 6px; }
+.cw-clue .icon-btn { flex: none; height: auto; min-height: 50px; width: 38px; }
+#cw-cluebar { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; text-align: left;
+  background: #FFF8F0; color: var(--ink); border-radius: 14px; padding: 6px 12px; box-shadow: 0 3px 0 #0E2F3B; min-height: 50px; }
+#cw-dir { font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #1F8E99; }
+#cw-clue { font-weight: 800; font-size: 1rem; line-height: 1.2; }
+.cw-hints { display: flex; gap: 8px; justify-content: center; }
+.cw-hints .boost { flex-direction: row; gap: 8px; padding: 6px 12px; max-width: 170px; background: #17485A; color: #FFF8F0; box-shadow: 0 3px 0 #0E2F3B; }
+.cw-hints .boost small { color: #BFE3EA; }
+.kb { display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; }
+.kb-row { display: flex; gap: 5px; justify-content: center; }
+.key { flex: 1; max-width: 42px; height: 46px; border-radius: 9px; background: #FFF8F0; color: var(--ink);
+  font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; box-shadow: 0 3px 0 #0E2F3B; touch-action: none;
+  display: grid; place-items: center; padding: 0; }
+.key.wide { flex: 1.6; max-width: 68px; background: #FFB547; }
+.key.down { transform: translateY(3px); box-shadow: 0 0 0 #0E2F3B; }
+#cw-toast { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: max-content; max-width: 90%; z-index: 5;
+  background: var(--ink); color: #FFF8F0; padding: 8px 14px; border-radius: 12px; font-weight: 700; font-size: .9rem; text-align: center; }
+.cw-list { position: absolute; inset: 0; z-index: 10; background: #1F5E6E; display: flex; flex-direction: column; gap: 8px;
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); }
+#cw-list-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-bottom: 16px; }
+#cw-list-body h4 { margin: 10px 0 2px; font-family: var(--font-display); font-size: 1.2rem; }
+.cw-item { text-align: left; background: #FFF8F0; color: var(--ink); border-radius: 12px; padding: 9px 12px; font-weight: 700; line-height: 1.3; }
+.cw-item b { color: #1F8E99; }
+.cw-item.ok { background: #D7F2CF; color: #2E7D38; text-decoration: line-through; }
+.pill.cw { background: #1F8E99; }
+
 /* ---------- Pop-up card ---------- */
 .modal {
   position: absolute; inset: 0; display: grid; place-items: center; z-index: 20;
@@ -220,6 +252,14 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
         <h2>Bombinha</h2>
         <p>Solte bombas no labirinto, derrube os tijolos, pegue os monstrinhos e ache a porta de saída.</p>
         <span class="pill bomb" id="bomb-pill">Jogar</span>
+      </span>
+    </button>
+    <button class="game-card" id="card-cw" type="button">
+      <canvas class="thumb" id="thumb-cw" width="112" height="112"></canvas>
+      <span class="meta">
+        <h2>Cruzadinha</h2>
+        <p>Leia as dicas e preencha as palavras que se cruzam no quadro, letra por letra.</p>
+        <span class="pill cw" id="cw-pill">Jogar</span>
       </span>
     </button>
   </div>
@@ -295,6 +335,34 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
       <button class="ctrl" id="bm-down" type="button" aria-label="Baixo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg></button>
     </div>
     <button class="ctrl bomb-btn" id="bm-fire" type="button" aria-label="Soltar bomba"><svg viewBox="0 0 48 48"><circle cx="22" cy="28" r="14" fill="#2B2D52"/><circle cx="17" cy="23" r="4" fill="rgba(255,255,255,.4)"/><path d="M30 17q5-6 9-4" stroke="#8A5A31" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="40" cy="12" r="4" fill="#FFD43B"/></svg><span>Bomba</span></button>
+  </div>
+</section>
+
+<section id="cw" class="screen cw-screen" hidden>
+  <div class="bar">
+    <button class="icon-btn" id="cw-back" type="button" aria-label="Voltar para a biblioteca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="level-title"><b id="cw-lv">Nível 1</b><span id="cw-info"></span></div>
+    <button class="icon-btn" id="cw-restart" type="button" aria-label="Apagar tudo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg></button>
+    <div class="coins"><span class="coin"></span><span id="cw-coins">0</span></div>
+  </div>
+  <div class="cw-clue">
+    <button class="icon-btn" id="cw-prev" type="button" aria-label="Dica anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <button id="cw-cluebar" type="button" aria-label="Ver todas as dicas"><span id="cw-dir"></span><span id="cw-clue"></span></button>
+    <button class="icon-btn" id="cw-next" type="button" aria-label="Próxima dica"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+  </div>
+  <div id="cw-wrap" class="cv-wrap"><canvas id="cwcv"></canvas><div id="cw-toast" hidden></div></div>
+  <div class="cw-hints">
+    <button class="boost" id="cw-letter" type="button">Ver letra<small><span class="coin"></span>5</small></button>
+    <button class="boost" id="cw-word" type="button">Ver palavra<small><span class="coin"></span>15</small></button>
+  </div>
+  <div class="kb" id="cw-kb"></div>
+  <div class="cw-list" id="cw-list" hidden>
+    <div class="bar">
+      <button class="icon-btn" id="cw-list-close" type="button" aria-label="Fechar as dicas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="level-title"><b>Dicas</b><span>toque numa dica para ir até ela</span></div>
+      <span style="width:42px"></span>
+    </div>
+    <div id="cw-list-body"></div>
   </div>
 </section>
 
@@ -510,6 +578,16 @@ function drawThumbs() {
   c.beginPath(); c.arc(51, 53, 4, 0, 7); c.fillStyle = 'rgba(255,255,255,.4)'; c.fill();
   c.strokeStyle = '#8A5A31'; c.lineWidth = 3; c.beginPath(); c.moveTo(64, 46); c.quadraticCurveTo(70, 38, 74, 40); c.stroke();
   c.beginPath(); c.arc(75, 39, 4, 0, 7); c.fillStyle = '#FFD43B'; c.fill();
+  c = setupThumb($('thumb-cw'));
+  c.fillStyle = '#1F5E6E'; rr(c, 0, 0, 112, 112, 16); c.fill();
+  c.font = "800 12px 'Baloo 2', sans-serif"; c.textAlign = 'center'; c.textBaseline = 'middle';
+  [[1, 0, 'J'], [1, 1, 'O'], [1, 2, 'G'], [1, 3, 'O'], [1, 4, 'S'], [2, 2, 'A'], [3, 2, 'T'], [4, 2, 'O'], [2, 4, 'O'], [3, 4, 'L']]
+    .forEach(([r, k, ch]) => {
+      const x = 12 + k * 18, y = 12 + r * 18;
+      rr(c, x, y + 1.5, 17, 17, 3); c.fillStyle = 'rgba(10,30,40,.35)'; c.fill();
+      rr(c, x, y, 17, 17, 3); c.fillStyle = r === 1 ? '#FFE59A' : '#FFF8F0'; c.fill();
+      c.fillStyle = INK; c.fillText(ch, x + 8.5, y + 10);
+    });
   c = setupThumb($('thumb-wood'));
   const g = c.createLinearGradient(0, 0, 112, 112); g.addColorStop(0, '#8A5A31'); g.addColorStop(1, '#6E4524');
   c.fillStyle = g; rr(c, 0, 0, 112, 112, 16); c.fill();
@@ -525,7 +603,8 @@ function showHome() {
   $('wood-pill').textContent = store.woodBest ? 'Recorde ' + store.woodBest : 'Jogar';
   $('tet-pill').textContent = store.tetStage > 1 ? 'Fase ' + tetStageName(store.tetStage) : 'Jogar';
   $('bomb-pill').textContent = store.bombBest ? 'Até o nível ' + store.bombBest : 'Jogar';
-  $('tet').hidden = true; $('bomb').hidden = true;
+  $('cw-pill').textContent = (store.cwLevel || 1) > 1 || store.cw ? 'Nível ' + (store.cwLevel || 1) : 'Jogar';
+  $('tet').hidden = true; $('bomb').hidden = true; $('cw').hidden = true;
   running = false; woodRunning = false; tetRunning = false; bombRunning = false;
 }
 $('card-bus').addEventListener('click', () => { sfx('tap'); openBusGame(); });
@@ -2202,6 +2281,726 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { if (KEYMAP[e.key] && bmInput === KEYMAP[e.key]) bmInput = null; });
 window.__bomb = { state: () => BG, placeBomb, setInput: d => { bmInput = d; } };
+
+/* ================= Cruzadinha ================= */
+// Answers are written in normal Portuguese; the grid uses them without accents (Ç → C), like printed cruzadinhas.
+const CW_BANK = `SOL|Estrela que ilumina o dia
+MAR|Imensidão de água salgada
+LUA|Satélite natural da Terra
+RIO|Água doce que corre até o mar
+PÃO|Feito de farinha e assado no forno da padaria
+CÉU|Onde ficam as nuvens
+MEL|Doce produzido pelas abelhas
+CHÁ|Bebida de folhas em água quente
+REI|Monarca que usa coroa
+LAR|Casa, morada da família
+OVO|A galinha bota
+UVA|Fruta em cacho do suco roxo
+ASA|O pássaro bate para voar
+BOI|Macho da vaca
+RUA|Via pública da cidade
+DIA|O contrário de noite
+MÃO|Tem cinco dedos e fica no fim do braço
+COR|Azul, verde ou vermelho, por exemplo
+NOZ|Fruto seco de casca dura
+PIA|Onde se lava a louça
+VOZ|Som que sai da garganta ao falar
+PAZ|O contrário de guerra
+LUZ|O que a lâmpada acesa espalha
+SAL|Tempero branco tirado do mar
+FIM|O contrário de começo
+TIA|Irmã do pai ou da mãe
+ANO|Tem doze meses
+ARO|Parte redonda da roda da bicicleta
+GOL|Grito da torcida quando a bola entra
+OCA|Casa indígena tradicional
+LER|O que fazemos com um livro
+RIR|Achar graça
+MÊS|Janeiro é um
+GATO|Animal que mia
+PATO|Ave que faz quá-quá
+BOLA|Objeto redondo do futebol
+CASA|Lugar onde moramos
+MESA|Móvel onde se fazem as refeições
+FOGO|Chama que aquece e queima
+ÁGUA|Líquido que mata a sede
+SAPO|Bicho que coaxa na lagoa
+TATU|Animal de carapaça que cava buracos
+ALHO|Tempero de dentes brancos
+RAIO|Clarão que corta o céu na tempestade
+GELO|Água congelada
+ILHA|Terra cercada de água por todos os lados
+LEÃO|Felino conhecido como rei da selva
+URSO|Bicho grande e peludo que adora mel
+VACA|Dá leite e faz mu
+MALA|Bagagem para viajar
+FACA|Talher que corta
+COPO|Usado para beber água
+SOPA|Prato quente tomado de colher
+ARCO|Lança flechas
+ROSA|Flor perfumada que tem espinhos
+LAGO|Água parada cercada de terra
+NEVE|Flocos brancos que caem no inverno gelado
+VELA|Acende-se no bolo de aniversário
+DEDO|A mão tem cinco
+OLHO|Órgão da visão
+BOCA|Parte do rosto por onde comemos
+PELE|Reveste todo o corpo
+MAPA|Desenho que mostra lugares e caminhos
+PIPA|Brinquedo que voa preso a uma linha
+DADO|Cubo com pontinhos de um a seis
+SINO|Toca na torre da igreja
+ONDA|Quebra na praia
+FOCA|Mamífero marinho de bigodes
+LOBO|Uiva para a lua
+RATO|Roedor que adora queijo
+SAIA|Roupa que vai da cintura para baixo
+BOTA|Calçado de cano alto
+ANEL|Joia usada no dedo
+TREM|Corre sobre trilhos
+CAFÉ|Bebida preta e quente da manhã
+PERA|Fruta em forma de gota
+CAJU|Fruta que tem a castanha do lado de fora
+COCO|Fruto que tem água dentro
+SEDE|Vontade de beber água
+SONO|Vontade de dormir
+RISO|O mesmo que risada
+AMOR|Sentimento de carinho profundo
+VIDA|O contrário de morte
+HORA|Tem sessenta minutos
+CAMA|Móvel para dormir
+SOFÁ|Assento estofado da sala
+BOLO|Doce da festa de aniversário
+DOCE|O contrário de salgado
+MOTO|Veículo de duas rodas com motor
+MAÇÃ|Fruta vermelha que se come com casca
+UNHA|Cresce na ponta do dedo
+AZUL|Cor do céu sem nuvens
+ROXO|Cor da berinjela
+VASO|Onde se planta uma flor dentro de casa
+FADA|Ser mágico de varinha e asinhas
+ROBÔ|Máquina que imita uma pessoa
+OURO|Metal amarelo e precioso
+VOAR|O que o avião e o pássaro fazem
+ALTO|O contrário de baixo
+FRIO|O contrário de quente
+NOVO|O contrário de velho
+ÁSIA|O maior continente
+ONÇA|Grande felino pintado do Brasil
+BOTO|Golfinho cor-de-rosa da Amazônia
+MICO|Macaquinho pequeno
+GALO|Canta bem cedo de manhã
+BIFE|Fatia de carne frita
+SUCO|Bebida de fruta espremida
+AÇAÍ|Fruto roxo da Amazônia, servido na tigela
+LIVRO|Tem capa e páginas para ler
+NUVEM|Fica no céu e traz a chuva
+AREIA|Cobre o chão da praia
+ARROZ|Acompanha o feijão no prato
+MILHO|Grão amarelo da espiga
+PRATO|Onde se serve a comida
+TIGRE|Felino de pelo listrado
+ZEBRA|Parece um cavalo listrado
+NINHO|Casa do passarinho
+NARIZ|Órgão do olfato
+PIANO|Instrumento de teclas brancas e pretas
+PRAIA|Lugar de areia à beira-mar
+VERDE|Cor da folha da árvore
+PRETO|Cor do carvão
+AMIGO|Companheiro de todas as horas
+CHUVA|Água que cai das nuvens
+VENTO|Ar em movimento
+TERRA|O nosso planeta
+FESTA|Comemoração com música e alegria
+LIMÃO|Fruta azeda da limonada
+MANGA|Fruta amarela e também parte da camisa
+CARRO|Veículo de quatro rodas
+BARCO|Navega sobre a água
+AVIÃO|Voa levando passageiros
+PONTE|Liga as duas margens do rio
+TORRE|Construção alta e estreita
+PORTA|Abre e fecha para a gente entrar
+LÁPIS|Escreve e pode ser apagado
+PAPEL|Folha para escrever ou desenhar
+TINTA|Usada para pintar a parede
+LEITE|Bebida branca que vem da vaca
+COBRA|Réptil sem patas
+GARFO|Talher de dentes
+VERÃO|A estação mais quente do ano
+TÊNIS|Esporte de raquete e também um calçado
+BALÃO|Enche-se de ar na festa
+CIRCO|Espetáculo debaixo da lona
+MUSEU|Guarda obras de arte e de história
+PRAÇA|Espaço público com bancos e árvores
+NATAL|Festa de 25 de dezembro
+SAMBA|Ritmo brasileiro do carnaval
+FORRÓ|Dança nordestina com sanfona
+FREVO|Dança pernambucana com sombrinha colorida
+PIZZA|Redonda, com queijo e molho de tomate
+FEIRA|Mercado ao ar livre
+OMBRO|Liga o braço ao corpo
+DENTE|Usado para mastigar
+BRAÇO|Fica entre o ombro e a mão
+PERNA|Usada para andar
+CINZA|Cor da nuvem de chuva
+SABÃO|Usado para lavar
+CHAVE|Abre a fechadura
+FOGÃO|Onde se cozinha a comida
+BRUXA|Voa numa vassoura
+PRATA|Metal da medalha de segundo lugar
+FERRO|Metal usado nos pregos
+PEDRA|Pedaço duro de rocha
+PULAR|O mesmo que saltar
+NADAR|O que o peixe faz na água
+COMER|Alimentar-se
+ANDAR|O mesmo que caminhar
+FELIZ|Contente, alegre
+LENTO|Vagaroso como a tartaruga
+CHEIO|O contrário de vazio
+LIMPO|O contrário de sujo
+FORTE|Quem tem muita força
+CALMO|Tranquilo, sereno
+BAHIA|Estado da cidade de Salvador
+BELÉM|Capital do Pará
+GOIÁS|Estado da cidade de Goiânia
+ARARA|Ave colorida de cauda longa
+SABIÁ|Ave que canta na Canção do Exílio
+POLVO|Bicho do mar com oito braços
+PEIXE|Vive na água e tem barbatanas
+PORCO|Animal rosado que faz oinc
+CABRA|Animal de chifres que dá leite e berra
+CISNE|Ave branca e elegante dos lagos
+GRILO|Inseto que canta à noite
+MOSCA|Inseto que zumbe na cozinha
+PULGA|Pula no pelo do cachorro
+PUDIM|Sobremesa com calda de caramelo
+MAMÃO|Fruta laranja de sementes pretas
+BANANA|Fruta amarela que o macaco adora
+BRANCO|Cor da neve
+FLAUTA|Instrumento de sopro
+JANELA|Abertura na parede para ver lá fora
+ESCOLA|Lugar onde se estuda
+QUEIJO|Feito de leite, o rato adora
+OVELHA|Animal que dá lã
+SAPATO|Calçado que se usa com meia
+CAMISA|Roupa com botões e gola
+CAVALO|Animal que relincha
+GIRAFA|Animal de pescoço comprido
+MACACO|Pula de galho em galho
+TUCANO|Ave de bico grande e colorido
+JACARÉ|Réptil de dentes fortes dos rios
+COELHO|Orelhudo que come cenoura
+PANELA|Usada para cozinhar no fogão
+COLHER|Talher para tomar sopa
+OUTONO|Estação em que as folhas caem
+XADREZ|Jogo de tabuleiro com rei e rainha
+PIPOCA|Milho estourado do cinema
+TOMATE|Vermelho, vai na salada e no molho
+BATATA|Vira purê ou fritas
+CEBOLA|Faz chorar quando é cortada
+FEIJÃO|Grão do prato do dia a dia
+FAROFA|Farinha de mandioca temperada
+PASTEL|Salgado frito da feira
+CORUJA|Ave que enxerga bem à noite
+BALEIA|O maior animal do mar
+CAMELO|Animal do deserto com corcovas
+ABELHA|Inseto que faz mel
+ARANHA|Tece teias
+MÚSICA|A arte dos sons
+VIOLÃO|Instrumento de seis cordas
+TAMBOR|Instrumento de percussão
+DOMINÓ|Jogo de pecinhas com pontinhos
+CINEMA|Onde se vê filme na tela grande
+TEATRO|Palco de peças e atores
+VULCÃO|Montanha que solta lava
+OCEANO|Grande massa de água salgada
+COMETA|Astro com cauda brilhante
+SEMANA|Tem sete dias
+MÉDICO|Cuida da nossa saúde
+PILOTO|Quem conduz o avião
+CABEÇA|Parte de cima do corpo
+JOELHO|Dobra no meio da perna
+ORELHA|Por onde ouvimos
+CABELO|Cresce na cabeça
+TOALHA|Usada para se enxugar
+ESCOVA|Usada para pentear ou limpar os dentes
+TAPETE|Cobre o chão da sala
+ESCADA|Tem degraus
+JARDIM|Lugar das flores na casa
+PIRATA|Navega atrás de tesouros
+DRAGÃO|Monstro que solta fogo pela boca
+SEREIA|Metade mulher, metade peixe
+CORRER|Andar bem depressa
+CANTAR|Soltar a voz com melodia
+DANÇAR|Mexer o corpo no ritmo da música
+DORMIR|Descansar de olhos fechados
+SONHAR|Ver histórias enquanto dorme
+RÁPIDO|Veloz
+BONITO|Belo, lindo
+BRASIL|País do samba e do futebol
+RECIFE|Capital de Pernambuco
+PARANÁ|Estado da cidade de Curitiba
+MANAUS|Capital do Amazonas
+SERTÃO|Região seca do interior do Nordeste
+EUROPA|Continente de Portugal
+ÁFRICA|Continente do Egito
+SALADA|Prato de folhas e legumes
+MINGAU|Papa de leite engrossada
+GOIABA|Fruta da goiabada
+GANSO|Ave parecida com o pato, de pescoço longo
+CENOURA|Legume laranja que o coelho adora
+CADERNO|Onde se anota a matéria da aula
+MOCHILA|Bolsa carregada nas costas
+INVERNO|A estação mais fria do ano
+FUTEBOL|Esporte do gol
+SORVETE|Doce gelado de casquinha
+MORANGO|Fruta vermelha com sementinhas por fora
+ABACAXI|Fruta de coroa e casca espinhuda
+LARANJA|Fruta cítrica do suco da manhã
+RELÓGIO|Mostra as horas
+CADEIRA|Assento com encosto
+ESTRELA|Brilha no céu à noite
+GALINHA|Ave que bota ovos
+PINGUIM|Ave que não voa e vive no gelo
+TUBARÃO|Peixe de dentes afiados
+FORMIGA|Inseto trabalhador que vive em formigueiro
+MINHOCA|Vive debaixo da terra
+CARACOL|Carrega a casa nas costas
+DESENHO|Feito com lápis no papel
+PALHAÇO|Artista do circo de nariz vermelho
+FAZENDA|Propriedade no campo com bichos e plantação
+DESERTO|Região seca e cheia de areia
+PLANETA|Marte é um
+FOGUETE|Leva astronautas para o espaço
+DOMINGO|Dia de descanso no fim da semana
+JANEIRO|Primeiro mês do ano
+SANFONA|Instrumento do forró
+COXINHA|Salgado em forma de gota recheado de frango
+TAPIOCA|Feita com goma de mandioca na frigideira
+GUARANÁ|Fruto que dá nome a um refrigerante
+PAMONHA|Feita de milho verde e cozida na palha
+PADEIRO|Quem faz o pão
+CORAÇÃO|Bate no peito
+AMARELO|Cor do sol e da gema do ovo
+ESPELHO|Mostra o nosso reflexo
+LÂMPADA|Ilumina o quarto
+TELHADO|Cobre a casa
+TESOURO|Baú cheio de ouro
+CASTELO|Morada de reis e rainhas
+GIGANTE|Muito, muito grande
+CERRADO|Bioma de árvores tortas do Centro-Oeste
+LAGARTO|Réptil de quatro patas que toma sol
+CANJICA|Doce de milho da festa junina
+PAÇOCA|Doce de amendoim
+ELEFANTE|Animal grande que tem tromba
+GOLFINHO|Mamífero do mar muito inteligente
+PAPAGAIO|Ave verde que imita a fala
+CACHORRO|O melhor amigo do homem
+GUITARRA|Instrumento de cordas ligado na tomada
+FLORESTA|Mata fechada com muitas árvores
+MONTANHA|Grande elevação de terra
+CARNAVAL|Festa de fantasias e desfiles
+MANDIOCA|Raiz também chamada de aipim
+DENTISTA|Cuida dos nossos dentes
+BOMBEIRO|Apaga incêndios
+CARTEIRO|Entrega as cartas
+AMAZONAS|Maior estado do Brasil
+PANTANAL|Grande planície alagada de Mato Grosso
+CAPIVARA|O maior roedor do mundo
+PREGUIÇA|Bicho lento que vive pendurado nas árvores
+TAMANDUÁ|Come formigas com a língua comprida
+BISCOITO|O mesmo que bolacha
+AMENDOIM|Grão usado na paçoca
+MELANCIA|Fruta verde por fora e vermelha por dentro
+PRIMAVERA|Estação das flores
+CHOCOLATE|Doce feito de cacau
+BORBOLETA|Inseto de asas coloridas que já foi lagarta
+TARTARUGA|Réptil que carrega o casco nas costas
+BRINQUEDO|Objeto feito para brincar
+BICICLETA|Tem pedais e duas rodas
+CACHOEIRA|Queda d'água no rio
+PROFESSOR|Ensina na escola
+GELADEIRA|Mantém a comida gelada
+BRIGADEIRO|Docinho de chocolate das festas
+CARANGUEJO|Bicho do mangue que anda de lado`.split('\n').map(l => { const [w, q] = l.split('|'); return { w: cwNorm(w), q }; });
+function cwNorm(s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z]/g, ''); }
+
+// grid size and word count grow with the level
+function cwParams(lv) {
+  const W = Math.min(10, 7 + Math.floor((lv - 1) / 3));
+  return { W, H: Math.min(11, W + 1), n: Math.min(15, 6 + Math.floor((lv - 1) / 2)) };
+}
+
+/* Greedy builder: place a word, then keep adding the word that crosses the most letters already placed.
+   A placement may only touch the grid where it crosses, so no accidental words appear. */
+function cwTry(rng, p) {
+  const pool = CW_BANK.filter(e => e.w.length <= Math.max(p.W, p.H));
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const cells = new Map(), words = [];
+  const key = (r, c) => (r + 100) * 1000 + c + 100;
+  const at = (r, c) => cells.get(key(r, c));
+  let box = null;
+  const check = (w, r, c, d) => {
+    const dr = d, dc = 1 - d;
+    if (at(r - dr, c - dc) || at(r + dr * w.length, c + dc * w.length)) return -1;
+    const b = box ? { ...box } : { r0: r, r1: r, c0: c, c1: c };
+    let cross = 0;
+    for (let i = 0; i < w.length; i++) {
+      const y = r + dr * i, x = c + dc * i, cell = at(y, x);
+      if (cell) { if (cell.ch !== w[i] || cell.d[d]) return -1; cross++; }
+      else if (at(y + dc, x + dr) || at(y - dc, x - dr)) return -1;
+      b.r0 = Math.min(b.r0, y); b.r1 = Math.max(b.r1, y); b.c0 = Math.min(b.c0, x); b.c1 = Math.max(b.c1, x);
+    }
+    if (b.r1 - b.r0 + 1 > p.H || b.c1 - b.c0 + 1 > p.W || cross === w.length) return -1;
+    return cross;
+  };
+  const place = (e, r, c, d) => {
+    const dr = d, dc = 1 - d;
+    for (let i = 0; i < e.w.length; i++) {
+      const y = r + dr * i, x = c + dc * i, k = key(y, x);
+      if (!cells.has(k)) cells.set(k, { ch: e.w[i], r: y, c: x, d: [false, false] });
+      cells.get(k).d[d] = true;
+      box = box ? { r0: Math.min(box.r0, y), r1: Math.max(box.r1, y), c0: Math.min(box.c0, x), c1: Math.max(box.c1, x) } : { r0: y, r1: y, c0: x, c1: x };
+    }
+    words.push({ w: e.w, q: e.q, r, c, d });
+    e.used = true;
+  };
+  pool.forEach(e => { e.used = false; });
+  const first = pool.find(e => e.w.length >= 5 && e.w.length <= Math.min(p.W, 8));
+  place(first, 0, 0, 0);
+  for (let pass = 0; pass < 3 && words.length < p.n; pass++) {
+    for (const e of pool) {
+      if (e.used || words.length >= p.n) continue;
+      let best = null;
+      for (const cell of cells.values()) {
+        for (let i = 0; i < e.w.length; i++) {
+          if (e.w[i] !== cell.ch) continue;
+          for (const d of [0, 1]) {
+            if (cell.d[d]) continue;
+            const r = cell.r - d * i, c = cell.c - (1 - d) * i, s = check(e.w, r, c, d);
+            if (s > 0 && (!best || s + rng() * .5 > best.s)) best = { r, c, d, s };
+          }
+        }
+      }
+      if (best && (best.s > 1 || pass > 0 || rng() < .6)) place(e, best.r, best.c, best.d);
+    }
+  }
+  return { words, box, cells };
+}
+
+function cwBuild(lv) {
+  const p = cwParams(lv), rng = mulberry32(lv * 7919 + 101);
+  let pick = null;
+  for (let t = 0; t < 24; t++) {
+    const g = cwTry(rng, p);
+    let crosses = 0; for (const cell of g.cells.values()) if (cell.d[0] && cell.d[1]) crosses++;
+    const score = g.words.length * 100 + crosses * 10 - (p.W * p.H - g.cells.size) * .1;
+    if (!pick || score > pick.score) pick = { ...g, score };
+    if (g.words.length >= p.n && t >= 6) break;
+  }
+  const { box } = pick, W = box.c1 - box.c0 + 1, H = box.r1 - box.r0 + 1;
+  const sol = new Array(W * H).fill(null);
+  for (const cell of pick.cells.values()) sol[(cell.r - box.r0) * W + cell.c - box.c0] = cell.ch;
+  // numbers go in reading order, one per starting cell
+  const words = pick.words.map(w => ({ ...w, r: w.r - box.r0, c: w.c - box.c0 }));
+  const starts = [...new Set(words.map(w => w.r * W + w.c))].sort((a, b) => a - b);
+  const nums = {};
+  starts.forEach((s, i) => { nums[s] = i + 1; });
+  for (const w of words) {
+    w.num = nums[w.r * W + w.c];
+    w.cells = [...w.w].map((_, i) => (w.r + w.d * i) * W + w.c + (1 - w.d) * i);
+  }
+  words.sort((a, b) => a.d - b.d || a.num - b.num);
+  const cellWords = sol.map(() => [-1, -1]);
+  words.forEach((w, i) => w.cells.forEach(k => { cellWords[k][w.d] = i; }));
+  return { lv, W, H, sol, words, nums, cellWords };
+}
+
+let CW = null, cwRunning = false, cwLast = 0, cwToastT = 0;
+const cwcv = $('cwcv'), cwctx = cwcv.getContext('2d');
+let cwGeo = { cs: 30, ox: 0, oy: 0, w: 0, h: 0 };
+
+function cwNewGame(lv) {
+  const P = cwBuild(lv);
+  CW = { ...P, inp: P.sol.map(() => ''), rev: P.sol.map(() => false), solved: P.words.map(() => false), dir: 0, wi: 0, cur: 0, fx: [], done: false };
+  const sv = store.cw;
+  if (sv && sv.lv === lv && sv.inp && sv.inp.length === P.sol.length) {
+    CW.inp = [...sv.inp].map(ch => (ch === '.' ? '' : ch));
+    CW.rev = [...sv.rev].map(ch => ch === '1');
+  }
+  CW.words.forEach((w, i) => { CW.solved[i] = cwWordRight(w); });
+  const first = CW.solved.findIndex(s => !s);
+  cwSelectWord(first < 0 ? 0 : first);
+  cwSave(); cwHud(); cwBuildList(); cwLayout();
+}
+function cwSave() {
+  if (!CW) return;
+  store.cwLevel = CW.lv;
+  store.cw = CW.done ? null : { lv: CW.lv, inp: CW.inp.map(ch => ch || '.').join(''), rev: CW.rev.map(b => (b ? '1' : '0')).join('') };
+  save();
+}
+const cwWordRight = w => w.cells.every((k, i) => CW.inp[k] === w.w[i]);
+const cwLocked = k => CW.rev[k] || CW.cellWords[k].some(i => i >= 0 && CW.solved[i]);
+
+function cwHud() {
+  $('cw-lv').textContent = 'Nível ' + CW.lv;
+  const left = CW.solved.filter(s => !s).length;
+  $('cw-info').textContent = left ? (left === 1 ? 'falta 1 palavra' : `faltam ${left} palavras`) : 'completa!';
+  $('cw-coins').textContent = store.coins;
+  const w = CW.words[CW.wi];
+  $('cw-dir').textContent = `${w.num} ${w.d ? 'Vertical' : 'Horizontal'} · ${w.w.length} letras`;
+  $('cw-clue').textContent = w.q;
+  $('cw-letter').disabled = CW.done || store.coins < 5;
+  $('cw-word').disabled = CW.done || store.coins < 15;
+}
+
+function cwSelectWord(i, at) {
+  const w = CW.words[i];
+  CW.wi = i; CW.dir = w.d;
+  CW.cur = at != null ? at : (w.cells.find(k => !CW.inp[k] && !cwLocked(k)) ?? w.cells[0]);
+}
+function cwTapCell(k) {
+  if (CW.sol[k] == null || CW.done) return;
+  const ws = CW.cellWords[k];
+  let d = ws[CW.dir] >= 0 ? CW.dir : 1 - CW.dir;
+  if (k === CW.cur && ws[0] >= 0 && ws[1] >= 0) d = 1 - CW.dir;
+  cwSelectWord(ws[d], k);
+  sfx('tap'); cwHud(); cwKick();
+}
+function cwStep(w, from, dir) {
+  // next (dir 1) or previous (dir -1) cell of the word that can still be written
+  const i = w.cells.indexOf(from);
+  for (let j = i + dir; j >= 0 && j < w.cells.length; j += dir) if (!cwLocked(w.cells[j])) return w.cells[j];
+  return -1;
+}
+function cwNextWord(step = 1) {
+  const n = CW.words.length;
+  for (let s = 1; s <= n; s++) {
+    const i = ((CW.wi + step * s) % n + n) % n;
+    if (!CW.solved[i]) { cwSelectWord(i); return; }
+  }
+}
+function cwAfterChange(ks) {
+  // check every word that passes through the changed cells
+  let gotWord = false;
+  const touched = new Set();
+  for (const k of ks) CW.cellWords[k].forEach(i => { if (i >= 0) touched.add(i); });
+  for (const i of touched) {
+    if (CW.solved[i]) continue;
+    const w = CW.words[i];
+    if (w.cells.every(k => CW.inp[k])) {
+      if (cwWordRight(w)) { CW.solved[i] = true; gotWord = true; CW.fx.push({ kind: 'ok', w: i, t: 0 }); }
+      else if (i === CW.wi) { CW.fx.push({ kind: 'bad', w: i, t: 0 }); sfx('bump'); buzz(40); }
+    }
+  }
+  if (gotWord) { sfx('clear'); buzz(20); }
+  if (CW.solved.every(Boolean)) { cwWin(); return; }
+  if (CW.solved[CW.wi]) cwNextWord(1);
+  cwSave(); cwHud(); cwKick();
+}
+function cwType(ch) {
+  if (!CW || CW.done) return;
+  const w = CW.words[CW.wi];
+  let k = CW.cur;
+  if (cwLocked(k)) k = w.cells.find(c => !cwLocked(c) && !CW.inp[c]) ?? w.cells.find(c => !cwLocked(c));
+  if (k == null) return;
+  CW.inp[k] = ch; sfx('place');
+  const nxt = cwStep(w, k, 1);
+  CW.cur = nxt >= 0 ? nxt : k;
+  cwAfterChange([k]);
+}
+function cwBack() {
+  if (!CW || CW.done) return;
+  const w = CW.words[CW.wi];
+  let k = CW.cur;
+  if (!CW.inp[k] || cwLocked(k)) { const p = cwStep(w, k, -1); if (p < 0) return; k = p; }
+  CW.inp[k] = ''; CW.cur = k; sfx('pop');
+  cwSave(); cwKick();
+}
+function cwSpend(cost) {
+  if (store.coins < cost) { cwToast(`Você precisa de ${cost} moedas. Complete cruzadinhas para ganhar mais.`); return false; }
+  store.coins -= cost; save(); return true;
+}
+function cwHintLetter() {
+  const w = CW.words[CW.wi];
+  let k = !cwLocked(CW.cur) && CW.inp[CW.cur] !== CW.sol[CW.cur] ? CW.cur : w.cells.find(c => !cwLocked(c) && CW.inp[c] !== CW.sol[c]);
+  if (k == null) k = w.cells.find(c => !cwLocked(c));
+  if (k == null || !cwSpend(5)) return;
+  CW.inp[k] = CW.sol[k]; CW.rev[k] = true; sfx('pop');
+  const nxt = cwStep(w, k, 1); if (nxt >= 0) CW.cur = nxt;
+  cwAfterChange([k]);
+}
+function cwHintWord() {
+  const w = CW.words[CW.wi];
+  const ks = w.cells.filter(c => !cwLocked(c));
+  if (!ks.length || !cwSpend(15)) return;
+  for (const k of ks) { CW.inp[k] = CW.sol[k]; CW.rev[k] = true; }
+  cwAfterChange(ks);
+}
+function cwWin() {
+  CW.done = true;
+  const prize = 10 + Math.min(20, CW.lv);
+  store.coins += prize; store.cwLevel = CW.lv + 1; store.cw = null; save();
+  cwHud(); cwKick(); sfx('win');
+  setTimeout(() => {
+    if ($('cw').hidden) return;
+    modal('Cruzadinha completa!', `Você acertou as ${CW.words.length} palavras do nível ${CW.lv} e ganhou ${prize} moedas.`, [
+      { label: 'Próximo nível', fn: () => cwNewGame(CW.lv + 1) },
+      { label: 'Voltar à biblioteca', cls: 'ghost', fn: showHome },
+    ]);
+  }, 700);
+}
+function cwToast(m) { $('cw-toast').textContent = m; $('cw-toast').hidden = false; cwToastT = 2.4; cwKick(); }
+
+/* ---------- clue list ---------- */
+function cwBuildList() {
+  const box = $('cw-list-body'); box.textContent = '';
+  for (const d of [0, 1]) {
+    const h = document.createElement('h4'); h.textContent = d ? 'Verticais' : 'Horizontais'; box.append(h);
+    CW.words.forEach((w, i) => {
+      if (w.d !== d) return;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'cw-item' + (CW.solved[i] ? ' ok' : '');
+      const n = document.createElement('b'); n.textContent = w.num;
+      b.append(n, ' ' + w.q + ` (${w.w.length})`);
+      b.addEventListener('click', () => { cwSelectWord(i); $('cw-list').hidden = true; cwHud(); cwKick(); });
+      box.append(b);
+    });
+  }
+}
+
+/* ---------- drawing ---------- */
+function cwLayout() {
+  const wrap = $('cw-wrap'), dpr = Math.min(3, window.devicePixelRatio || 1);
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  cwcv.width = w * dpr; cwcv.height = h * dpr; cwctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (!CW) return;
+  const cs = Math.floor(Math.min((w - 4) / CW.W, (h - 4) / CW.H, 52));
+  cwGeo = { cs, w, h, ox: Math.round((w - cs * CW.W) / 2), oy: Math.round((h - cs * CW.H) / 2) };
+  cwDraw();
+}
+function cwDraw() {
+  const c = cwctx, { cs, ox, oy, w, h } = cwGeo;
+  c.clearRect(0, 0, w, h);
+  if (!CW) return;
+  const sel = new Set(CW.words[CW.wi].cells);
+  const fxOf = k => CW.fx.find(f => CW.words[f.w].cells.includes(k));
+  for (let k = 0; k < CW.sol.length; k++) {
+    if (CW.sol[k] == null) continue;
+    const r = Math.floor(k / CW.W), col = k % CW.W;
+    let x = ox + col * cs, y = oy + r * cs;
+    const f = fxOf(k);
+    let pop = 1;
+    if (f && f.kind === 'bad') x += Math.sin(f.t * 40) * cs * .12 * (1 - f.t / .5);
+    if (f && f.kind === 'ok') { const i = CW.words[f.w].cells.indexOf(k), tt = clamp(f.t * 3 - i * .12, 0, 1); pop = 1 + Math.sin(tt * Math.PI) * .14; }
+    const locked = cwLocked(k), done = CW.cellWords[k].some(i => i >= 0 && CW.solved[i]);
+    let bg = '#FFF8F0';
+    if (done) bg = '#D7F2CF';
+    if (sel.has(k) && !CW.done) bg = done ? '#C3EBD0' : '#FFE59A';
+    if (k === CW.cur && !CW.done) bg = '#FFB547';
+    if (f && f.kind === 'bad') bg = '#FFB3B3';
+    const g = cs * .06, s = (cs - g * 2) * pop, cx = x + cs / 2, cy = y + cs / 2;
+    rr(c, cx - s / 2, cy - s / 2 + g * .8, s, s, s * .16); c.fillStyle = 'rgba(10,30,40,.35)'; c.fill();
+    rr(c, cx - s / 2, cy - s / 2, s, s, s * .16); c.fillStyle = bg; c.fill();
+    if (CW.nums[k]) {
+      c.fillStyle = '#5A6A80'; c.font = `800 ${Math.max(8, cs * .26)}px ${'Nunito, sans-serif'}`;
+      c.textAlign = 'left'; c.textBaseline = 'top';
+      c.fillText(CW.nums[k], cx - s / 2 + s * .08, cy - s / 2 + s * .05);
+    }
+    const ch = CW.inp[k];
+    if (ch) {
+      c.fillStyle = CW.rev[k] ? '#2D58B5' : done ? '#2E7D38' : INK;
+      c.font = `800 ${cs * .6 * pop}px 'Baloo 2', 'Trebuchet MS', sans-serif`;
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(ch, cx, cy + cs * .07);
+    }
+  }
+}
+function cwKick() {
+  cwDraw();
+  if (!cwRunning) { cwRunning = true; cwLast = performance.now(); requestAnimationFrame(cwFrame); }
+}
+function cwFrame(t) {
+  const dt = Math.min(.05, (t - cwLast) / 1000 || 0); cwLast = t;
+  if (!CW || $('cw').hidden) { cwRunning = false; return; }
+  CW.fx.forEach(f => { f.t += dt; });
+  CW.fx = CW.fx.filter(f => f.t < (f.kind === 'ok' ? 1.2 : .5));
+  if (cwToastT > 0) { cwToastT -= dt; if (cwToastT <= 0) $('cw-toast').hidden = true; }
+  cwDraw();
+  if (CW.fx.length || cwToastT > 0) requestAnimationFrame(cwFrame); else cwRunning = false;
+}
+
+function openCw() {
+  $('home').hidden = true; $('cw').hidden = false; $('cw-list').hidden = true;
+  if (!CW || CW.done) cwNewGame(store.cwLevel || 1); else { cwHud(); cwLayout(); }
+  requestAnimationFrame(cwLayout);
+}
+
+// on-screen keyboard: answers have no accents, so plain A–Z is enough
+(() => {
+  const kb = $('cw-kb');
+  ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM<'].forEach(row => {
+    const line = document.createElement('div'); line.className = 'kb-row';
+    for (const ch of row) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'key' + (ch === '<' ? ' wide' : '');
+      if (ch === '<') {
+        b.setAttribute('aria-label', 'Apagar');
+        b.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>';
+      } else b.textContent = ch;
+      b.addEventListener('pointerdown', e => {
+        e.preventDefault(); b.classList.add('down');
+        if (ch === '<') cwBack(); else cwType(ch);
+      });
+      const up = () => b.classList.remove('down');
+      b.addEventListener('pointerup', up); b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
+      line.append(b);
+    }
+    kb.append(line);
+  });
+})();
+
+cwcv.addEventListener('pointerdown', e => {
+  if (!CW) return;
+  const rect = cwcv.getBoundingClientRect(), { cs, ox, oy } = cwGeo;
+  const col = Math.floor((e.clientX - rect.left - ox) / cs), r = Math.floor((e.clientY - rect.top - oy) / cs);
+  if (col < 0 || r < 0 || col >= CW.W || r >= CW.H) return;
+  cwTapCell(r * CW.W + col);
+});
+$('cw-prev').addEventListener('click', () => { if (CW && !CW.done) { cwNextWord(-1); sfx('tap'); cwHud(); cwKick(); } });
+$('cw-next').addEventListener('click', () => { if (CW && !CW.done) { cwNextWord(1); sfx('tap'); cwHud(); cwKick(); } });
+$('cw-cluebar').addEventListener('click', () => { if (!CW) return; cwBuildList(); $('cw-list').hidden = false; });
+$('cw-list-close').addEventListener('click', () => { $('cw-list').hidden = true; });
+$('cw-letter').addEventListener('click', () => { if (CW && !CW.done) cwHintLetter(); });
+$('cw-word').addEventListener('click', () => { if (CW && !CW.done) cwHintWord(); });
+$('card-cw').addEventListener('click', () => { sfx('tap'); openCw(); });
+$('cw-back').addEventListener('click', showHome);
+$('cw-restart').addEventListener('click', () => {
+  if (!CW || CW.done) return;
+  modal('Apagar tudo?', 'As letras que você escreveu somem e a cruzadinha deste nível começa do zero.', [
+    { label: 'Apagar e recomeçar', fn: () => { store.cw = null; cwNewGame(CW.lv); } },
+    { label: 'Continuar jogando', cls: 'ghost', fn: () => {} },
+  ]);
+});
+window.addEventListener('resize', () => { if (!$('cw').hidden) cwLayout(); });
+document.addEventListener('keydown', e => {
+  if ($('cw').hidden || !CW || !$('modal').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+  const ch = cwNorm(e.key);
+  if (e.key.length === 1 && ch.length === 1) cwType(ch);
+  else if (e.key === 'Backspace') cwBack();
+  else if (e.key === 'Enter' || e.key === 'Tab') { cwNextWord(e.shiftKey ? -1 : 1); cwHud(); cwKick(); }
+  else if (e.key.startsWith('Arrow')) {
+    const d = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+    let r = Math.floor(CW.cur / CW.W) + d[0], col = CW.cur % CW.W + d[1];
+    while (r >= 0 && col >= 0 && r < CW.H && col < CW.W && CW.sol[r * CW.W + col] == null) { r += d[0]; col += d[1]; }
+    if (r >= 0 && col >= 0 && r < CW.H && col < CW.W) {
+      const k = r * CW.W + col, ws = CW.cellWords[k], dd = d[0] ? 1 : 0;
+      cwSelectWord(ws[dd] >= 0 ? ws[dd] : ws[1 - dd], k); cwHud(); cwKick();
+    }
+  } else return;
+  e.preventDefault();
+});
+window.__cw = { state: () => CW, build: cwBuild, type: cwType, tap: cwTapCell, open: openCw, bank: CW_BANK };
 
 window.__art = { drawBus, drawPax, drawBlock, COLORS, rr };
 window.__wood = { state: () => WG, place: woodPlace, fits, SHAPES, open: openWood, trayCenter, geom: () => ({ bx, by, bc }) };

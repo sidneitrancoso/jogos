@@ -6,6 +6,7 @@ Joguinhos para celular (Android e iPhone) que funcionam no navegador e podem ser
 - **Blocos de Madeira**: arraste as peças para o tabuleiro e complete linhas e colunas.
 - **Chuva de Blocos**: gire e encaixe as peças que caem (no estilo Tetris).
 - **Bombinha**: bombas, tijolos e monstrinhos num labirinto (no estilo Bomberman).
+- **Cruzadinha**: palavras cruzadas em português, com dicas, teclado na tela e níveis que vão crescendo.
 
 ## Como instalar no celular
 
