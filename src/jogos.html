@@ -172,6 +172,9 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
     </button>
     <div class="level-title"><b id="lv-label">Nível 1</b><span id="pax-label">0 passageiros</span></div>
+    <button class="icon-btn" id="b-retry" type="button" aria-label="Recomeçar o nível">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>
+    </button>
     <button class="icon-btn" id="btn-sound" type="button" aria-label="Som ligado">
       <svg id="ico-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path id="ico-wave" d="M17 8.5a5 5 0 0 1 0 7"/><path id="ico-x" d="M17 9l5 6M22 9l-5 6" hidden/></svg>
     </button>
@@ -179,9 +182,9 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
   </div>
   <div id="wrap"><canvas id="cv"></canvas></div>
   <div class="boosters">
-    <button class="boost" id="b-slot" type="button">Vaga extra<small><span class="coin"></span>20</small></button>
     <button class="boost" id="b-vip" type="button">VIP<small><span class="coin"></span>30</small></button>
-    <button class="boost" id="b-retry" type="button">Recomeçar<small>grátis</small></button>
+    <button class="boost" id="b-sort" type="button">Organizar<small><span class="coin"></span>20</small></button>
+    <button class="boost" id="b-mix" type="button">Misturar<small><span class="coin"></span>20</small></button>
   </div>
 </section>
 
@@ -419,65 +422,98 @@ $('btn-back').addEventListener('click', showHome);
 /* ================= Busão Lotado ================= */
 const cv = $('cv'), ctx = cv.getContext('2d'), wrap = $('wrap');
 let G = null, running = false, lastT = 0;
-let W = 0, H = 0, cell = 40, gx = 0, gy = 0, slotW = 40, slotH = 60, slotY = 0, slotX0 = 0, slotGap = 6;
-let qPath = [], sp = 22, qTop = 0, qBottom = 0;
-const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // up, right, down, left
+let W = 0, H = 0, slotW = 40, slotH = 60, slotY = 0, slotX0 = 0, slotGap = 6;
+let qPath = [], qNorm = [], sp = 16, pr = 8, laneH = 60, qTop = 0, qBottom = 0;
+let lotX = 0, lotY = 0, lotS = 3; // lot origin on screen, pixels per world unit
+const LOT_W = 100, LOT_H = 125, BUS_W = 8.4, OPEN_SLOTS = 4;
+// 8 headings, clockwise from "up"; the front of a bus points along DIR8[dir]
+const DIR8 = Array.from({ length: 8 }, (_, i) => [Math.round(Math.sin(i * Math.PI / 4) * 1e6) / 1e6, -Math.round(Math.cos(i * Math.PI / 4) * 1e6) / 1e6]);
+const SIZES = [{ len: 14, cap: 4 }, { len: 18, cap: 6 }, { len: 24, cap: 10 }];
+const COST = { vip: 30, sort: 20, mix: 20, slot: 20 };
 
 function params(lv) {
-  const e = lv + 6; // level 1 already plays like an old level 7
+  const e = lv + 2;
   return {
-    cols: 6,
-    rows: Math.min(9, 6 + Math.floor((e - 1) / 4)),
-    ncol: Math.min(8, 2 + Math.ceil(e / 2)),
-    k: e <= 7 ? 3 : 4,
-    p3: Math.min(.55, .15 + e * .03),
-    fill: Math.min(.9, .62 + e * .025),
+    n: Math.min(60, 20 + Math.round(e * 1.4)),
+    ncol: Math.min(8, 4 + Math.floor(e / 3)),
+    k: lv <= 2 ? 3 : 4,
+    f: lv <= 3 ? 1.2 : lv <= 10 ? 1.06 : lv <= 20 ? .96 : .88,
+    diag: lv >= 3 ? Math.min(.45, .18 + lv * .02) : 0,
+    mirror: lv % 3 !== 1,
+    pM: .3, pL: lv >= 5 ? .1 : 0,
+    crates: lv >= 6 ? Math.min(.2, .06 + lv * .006) : 0,
+    hidden: lv >= 4 ? Math.min(.3, .08 + lv * .01) : 0,
   };
 }
 
-function exitCells(b, cols, rows) {
-  const out = [];
-  if (b.dir === 0) for (let y = b.y - 1; y >= 0; y--) out.push([b.x, y]);
-  else if (b.dir === 2) for (let y = b.y + b.h; y < rows; y++) out.push([b.x, y]);
-  else if (b.dir === 1) for (let x = b.x + b.w; x < cols; x++) out.push([x, b.y]);
-  else for (let x = b.x - 1; x >= 0; x--) out.push([x, b.y]);
-  return out;
+/* ---------- geometry: buses are oriented rectangles in a 100 x 125 lot ---------- */
+function obb(b, off = 0) {
+  const [dx, dy] = DIR8[b.dir];
+  return { x: b.x + dx * off, y: b.y + dy * off, dx, dy, hl: b.len / 2, hw: b.wid / 2 };
+}
+function overlap(a, b, pad = 0) {
+  const ex = a.x - b.x, ey = a.y - b.y, rA = Math.hypot(a.hl, a.hw), rB = Math.hypot(b.hl, b.hw);
+  if (ex * ex + ey * ey > (rA + rB + pad) * (rA + rB + pad)) return false;
+  for (const [ax, ay] of [[a.dx, a.dy], [-a.dy, a.dx], [b.dx, b.dy], [-b.dy, b.dx]]) {
+    const pa = Math.abs(a.hl * (a.dx * ax + a.dy * ay)) + Math.abs(a.hw * (-a.dy * ax + a.dx * ay));
+    const pb = Math.abs(b.hl * (b.dx * ax + b.dy * ay)) + Math.abs(b.hw * (-b.dy * ax + b.dx * ay));
+    if (Math.abs(ex * ax + ey * ay) > pa + pb + pad) return false;
+  }
+  return true;
+}
+// Slide a bus forward until it leaves the lot; reports the first bus in the way.
+function travel(b, others) {
+  const R = Math.hypot(b.len / 2, b.wid / 2);
+  for (let s = 1; ; s++) {
+    const o = obb(b, s);
+    if (o.x < -R || o.x > LOT_W + R || o.y < -R || o.y > LOT_H + R) return { hit: null, dist: s };
+    for (const ob of others) if (ob !== b && overlap(o, ob.o, .25)) return { hit: ob, dist: s - 1 };
+  }
+}
+function inLot(o) {
+  const ex = o.hl * Math.abs(o.dx) + o.hw * Math.abs(o.dy), ey = o.hl * Math.abs(o.dy) + o.hw * Math.abs(o.dx);
+  return o.x - ex >= 1 && o.x + ex <= LOT_W - 1 && o.y - ey >= 1 && o.y + ey <= LOT_H - 1;
 }
 
 /* Levels are built backwards: every new bus needs a free road out past the buses already parked,
    so removing them in reverse order always works. The passenger line follows that order,
-   mixing at most k buses at a time, which always fits in the 5 open slots. */
+   mixing at most k buses at a time, and is checked to fit in the 4 open slots. */
 function genLevel(lv) {
-  const P = params(lv), rng = mulberry32(lv * 9973 + 7);
-  const target = Math.round(P.cols * P.rows * P.fill);
-  let best = null;
-  for (let a = 0; a < 40; a++) {
-    const occ = new Int16Array(P.cols * P.rows).fill(-1);
-    const buses = []; let filled = 0;
-    for (let t = 0; t < 3000 && filled < target; t++) {
-      const len = rng() < P.p3 ? 3 : 2;
-      const r = rng(), dir = r < .4 ? 0 : r < .6 ? 1 : r < .8 ? 3 : 2;
-      const hz = dir === 1 || dir === 3, w = hz ? len : 1, h = hz ? 1 : len;
-      const x = Math.floor(rng() * (P.cols - w + 1)), y = Math.floor(rng() * (P.rows - h + 1));
-      let ok = true;
-      for (let yy = y; yy < y + h && ok; yy++) for (let xx = x; xx < x + w; xx++) if (occ[yy * P.cols + xx] !== -1) { ok = false; break; }
-      if (!ok) continue;
-      const b = { x, y, w, h, dir, len };
-      for (const [cx, cy] of exitCells(b, P.cols, P.rows)) if (occ[cy * P.cols + cx] !== -1) { ok = false; break; }
-      if (!ok) continue;
-      const id = buses.length; buses.push(b);
-      for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) occ[yy * P.cols + xx] = id;
-      filled += len;
+  const P = params(lv), rng = mulberry32(lv * 7717 + 3);
+  const placed = [];
+  const tryPlace = b => {
+    b.o = obb(b);
+    if (!inLot(b.o)) return false;
+    for (const p of placed) if (overlap(b.o, p.o, .9)) return false;
+    if (travel(b, placed).hit) return false;
+    placed.push(b); return true;
+  };
+  for (let t = 0; t < 9000 && placed.length < P.n; t++) {
+    const r = rng(), size = r < P.pL ? 2 : r < P.pL + P.pM ? 1 : 0;
+    const diag = rng() < P.diag;
+    const dir = diag ? 1 + 2 * Math.floor(rng() * 4) : 2 * Math.floor(rng() * 4);
+    let x = rng() * LOT_W, y = rng() * LOT_H;
+    if (placed.length > 2 && rng() < .75) { // pack next to an existing bus
+      const q = placed[Math.floor(rng() * placed.length)], a = rng() * Math.PI * 2, d = BUS_W * P.f * (1 + rng() * 1.6);
+      x = q.x + Math.cos(a) * d; y = q.y + Math.sin(a) * d;
     }
-    if (!best || filled > best.filled) best = { buses, filled };
-    if (filled >= target) break;
+    const b = { x: Math.round(x * 2) / 2, y: Math.round(y * 2) / 2, dir, len: SIZES[size].len * P.f, wid: BUS_W * P.f, cap: SIZES[size].cap };
+    if (!tryPlace(b)) continue;
+    if (P.mirror && Math.abs(b.x - LOT_W / 2) > 3) {
+      const m = { ...b, x: LOT_W - b.x, dir: (8 - b.dir) % 8 };
+      if (!tryPlace(m)) placed.pop();
+    }
   }
   const pal = COLORS.map((_, i) => i);
   for (let i = pal.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pal[i], pal[j]] = [pal[j], pal[i]]; }
   const use = pal.slice(0, P.ncol);
-  const buses = best.buses.map((b, i) => ({ ...b, id: i, cap: b.len === 3 ? 6 : 4, color: use[Math.floor(rng() * use.length)] }));
-  const order = buses.slice().reverse();
-  let queue = null, pullAt = null;
+  const buses = placed.map((b, i) => {
+    const crate = i < placed.length - 2 && rng() < P.crates;
+    return { x: b.x, y: b.y, dir: b.dir, len: b.len, wid: b.wid, id: i, crate, cap: crate ? 0 : b.cap,
+      color: crate ? -1 : use[Math.floor(rng() * use.length)], hidden: !crate && rng() < P.hidden };
+  });
+  const order = buses.filter(b => !b.crate).reverse();
+  let queue = null;
   for (let tries = 0; tries < 40 && !queue; tries++) {
     const q = [], active = [];
     let i = 0;
@@ -490,67 +526,58 @@ function genLevel(lv) {
       if (!a.r) active.splice(j, 1);
     }
     const sim = simulate(order, q);
-    if (sim && sim.maxS <= OPEN_SLOTS) { queue = q; pullAt = sim.pullAt; }
+    if (sim && sim.maxS <= OPEN_SLOTS) queue = q;
   }
-  if (!queue) { // fallback: one bus at a time, always fits
-    queue = []; pullAt = {};
-    for (const b of order) { pullAt[b.id] = queue.length; for (let n = 0; n < b.cap; n++) queue.push(b.color); }
-  }
-  // Barriers on the top edge: a column stays closed until enough passengers have boarded.
-  // The count never exceeds what the reference solution has boarded when it needs that column.
-  const gates = [];
-  if (lv >= 2) {
-    const cand = [];
-    for (let c = 0; c < P.cols; c++) {
-      const ups = buses.filter(b => b.dir === 0 && b.x === c);
-      if (!ups.length) continue;
-      const need = Math.min(...ups.map(b => pullAt[b.id]));
-      if (need >= 8) cand.push({ col: c, need: Math.min(need, 10 + Math.round(queue.length * .2) + Math.floor(rng() * 8)) });
-    }
-    cand.sort((a, b) => b.need - a.need);
-    gates.push(...cand.slice(0, lv >= 8 ? 2 : 1));
-  }
-  // Mystery buses hide their color until their road out is clear.
-  const pHidden = lv >= 3 ? Math.min(.4, .12 + lv * .02) : 0;
-  for (const b of buses) b.hidden = rng() < pHidden;
-  return { P, buses, queue, gates };
+  if (!queue) { queue = []; for (const b of order) for (let n = 0; n < b.cap; n++) queue.push(b.color); }
+  return { P, buses, queue };
 }
-
-const OPEN_SLOTS = 4;
 function simulate(order, q) {
-  const slots = [], pullAt = {};
+  const slots = [];
   let oi = 0, maxS = 0, pos = 0;
   while (pos < q.length) {
     const s = slots.find(s => s.color === q[pos] && s.f < s.cap);
     if (s) { s.f++; pos++; if (s.f === s.cap) slots.splice(slots.indexOf(s), 1); continue; }
     if (oi >= order.length) return null;
-    const b = order[oi++]; pullAt[b.id] = pos;
+    const b = order[oi++];
     slots.push({ color: b.color, cap: b.cap, f: 0 }); maxS = Math.max(maxS, slots.length);
   }
-  return { maxS, pullAt };
+  return { maxS };
 }
 
 function startLevel(lv) {
   const L = genLevel(lv);
   G = {
-    lv, cols: L.P.cols, rows: L.P.rows,
-    buses: L.buses.map(b => ({ ...b, state: 'grid', filled: 0, reserved: 0, bump: null, shake: 0, mv: null, lt: 0, slot: -1 })),
-    queue: L.queue.map((c, i) => ({ c, d: i + 6 })),
+    lv,
+    buses: L.buses.map(b => ({ ...b, o: obb(b), state: 'lot', filled: 0, reserved: 0, bump: null, shake: 0, mv: null, lt: 0, slot: -1, canExit: false })),
+    queue: L.queue.map((c, i) => ({ c, d: i + 9 })),
     slots: Array.from({ length: 8 }, (_, i) => ({ bus: null, locked: i > OPEN_SLOTS, vip: i === 0 })),
     flyers: [], puffs: [], vipMode: false, over: false, tapped: false, boardT: 0, stuckT: 0, slotFlash: 0, time: 0,
-    total: L.queue.length, gates: L.gates.map(g => ({ ...g, open: false, t: 0 })),
+    total: L.queue.length, dirty: true,
   };
   $('lv-label').textContent = 'Nível ' + lv;
   $('modal').hidden = true;
   layout(); refreshHud();
+}
+const lotBuses = () => G.buses.filter(b => b.state === 'lot');
+function recompute() {
+  const lot = lotBuses();
+  for (const b of lot) {
+    b.canExit = !travel(b, lot).hit;
+    if (b.hidden && b.canExit) {
+      b.hidden = false;
+      const p = busPose(b); G.puffs.push(...burst(p.cx, p.cy, COLORS[b.color].c, 10));
+    }
+  }
+  G.dirty = false;
 }
 
 function refreshHud() {
   $('coin-label').textContent = store.coins;
   $('pax-label').textContent = G ? `${G.queue.length} passageiros na fila` : '';
   $('b-vip').classList.toggle('on', !!(G && G.vipMode));
-  $('b-slot').disabled = !G || !G.slots.some(s => s.locked) || store.coins < 20;
-  $('b-vip').disabled = !G || (!G.vipMode && (store.coins < 30 || !!G.slots[0].bus));
+  $('b-vip').disabled = !G || (!G.vipMode && (store.coins < COST.vip || !!G.slots[0].bus));
+  $('b-sort').disabled = !G || store.coins < COST.sort;
+  $('b-mix').disabled = !G || store.coins < COST.mix;
   const on = store.sound;
   $('ico-wave').style.display = on ? '' : 'none';
   $('ico-x').hidden = on;
@@ -564,64 +591,68 @@ function layout() {
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (!G) return;
-  slotGap = Math.max(4, W * .012);
-  slotW = Math.min(54, (W - 8 - 7 * slotGap) / 8);
-  slotH = slotW * 1.5;
-  sp = clamp(W / 15, 17, 26);
+  const qRows = G.total > 150 ? 3 : 2, zoneH = clamp(H * .25, 120, 240);
+  laneH = zoneH / qRows;
+  pr = clamp(laneH / 7.6, 5.5, 13);
+  sp = pr * 1.55;
+  slotGap = Math.max(4, W * .014);
+  slotW = Math.min(50, (W - 12 - 7 * slotGap) / 8);
+  slotH = slotW * 1.55;
   qTop = 4;
-  const qRows = clamp(Math.floor((H * .24) / sp), 3, 6);
-  qBottom = qTop + qRows * sp;
-  slotY = qBottom + 10;
+  qBottom = qTop + qRows * laneH;
+  slotY = qBottom + 12;
   slotX0 = (W - (8 * slotW + 7 * slotGap)) / 2;
-  const gTop = slotY + slotH + 30, gBot = H - 8;
-  cell = Math.min((W - 16) / G.cols, (gBot - gTop) / G.rows, 72);
-  gx = (W - cell * G.cols) / 2;
-  gy = gTop + Math.max(0, (gBot - gTop - cell * G.rows) * .35);
+  const top = slotY + slotH + 16, avail = H - top - 6;
+  lotS = Math.min((W - 10) / LOT_W, avail / LOT_H);
+  lotX = (W - LOT_W * lotS) / 2;
+  lotY = top + (avail - LOT_H * lotS) * .3;
   buildQueuePath(qRows);
 }
 
+// Serpentine road with round U-turns, sampled every `sp` pixels; each sample holds a row of 3.
 function buildQueuePath(qRows) {
-  const left = sp * .6, right = W - sp * .6, y0 = qBottom - sp * .5;
-  const pts = [[W / 2, y0], [left, y0]];
+  const m = laneH / 2, left = m, right = W - m, y0 = qBottom - laneH / 2;
+  const pts = [[W * .56, y0], [left, y0]];
   for (let r = 1; r < qRows; r++) {
-    const y = y0 - r * sp, prevX = pts[pts.length - 1][0];
-    pts.push([prevX, y]);
-    pts.push([prevX === left ? right : left, y]);
+    const y = y0 - r * laneH, cx = pts[pts.length - 1][0], atLeft = cx === left, cy = y + laneH / 2;
+    for (let k = 1; k <= 12; k++) {
+      const th = Math.PI * k / 12;
+      pts.push([cx + (atLeft ? -1 : 1) * Math.sin(th) * m, cy + Math.cos(th) * m]);
+    }
+    pts.push([atLeft ? right : left, y]);
   }
-  qPath = [];
+  G.qPts = pts;
+  qPath = []; qNorm = [];
   let seg = 0, along = 0;
   for (let s = 0; ; s += sp) {
     while (seg < pts.length - 1) {
-      const [ax, ay] = pts[seg], [bx, by] = pts[seg + 1];
-      const len = Math.hypot(bx - ax, by - ay);
-      if (s - along <= len) { const t = (s - along) / len; qPath.push([lerp(ax, bx, t), lerp(ay, by, t)]); break; }
+      const [ax, ay] = pts[seg], [bx2, by2] = pts[seg + 1], len = Math.hypot(bx2 - ax, by2 - ay);
+      if (s - along <= len) {
+        const t = (s - along) / len;
+        qPath.push([lerp(ax, bx2, t), lerp(ay, by2, t)]); qNorm.push([-(by2 - ay) / len, (bx2 - ax) / len]);
+        break;
+      }
       along += len; seg++;
     }
     if (seg >= pts.length - 1) break;
   }
-  G.qPts = pts;
+}
+const qCap = () => (qPath.length - 1) * 3;
+function qSpot(i) {
+  const row = Math.min(qPath.length - 1, Math.floor(i / 3)), lane = (i % 3) - 1;
+  const [x, y] = qPath[row], [nx, ny] = qNorm[row];
+  return [x + nx * lane * pr * 2.05, y + ny * lane * pr * 2.05];
 }
 function qPos(d) {
-  const n = qPath.length - 1;
-  if (d >= n) return qPath[n];
-  const i = Math.floor(Math.max(0, d)), f = Math.max(0, d) - i;
-  const a = qPath[i], b = qPath[Math.min(n, i + 1)];
+  d = Math.max(0, d);
+  const i = Math.floor(d), f = d - i, a = qSpot(i), b = qSpot(i + 1);
   return [lerp(a[0], b[0], f), lerp(a[1], b[1], f)];
 }
 
 const slotRect = i => ({ x: slotX0 + i * (slotW + slotGap), y: slotY, w: slotW, h: slotH });
-const slotPose = i => { const s = slotRect(i); return { cx: s.x + s.w / 2, cy: s.y + s.h / 2, L: s.h * .9, Wd: s.w * .8, ang: 0 }; };
-function gridPose(b) {
-  return {
-    cx: gx + (b.x + b.w / 2) * cell, cy: gy + (b.y + b.h / 2) * cell,
-    L: b.len * cell - cell * .14, Wd: cell * .8, ang: [0, Math.PI / 2, Math.PI, -Math.PI / 2][b.dir],
-  };
-}
-function occupancy() {
-  const occ = new Int16Array(G.cols * G.rows).fill(-1);
-  for (const b of G.buses) if (b.state === 'grid')
-    for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) occ[y * G.cols + x] = b.id;
-  return occ;
+const slotPose = i => { const s = slotRect(i); return { cx: s.x + s.w / 2, cy: s.y + s.h / 2, L: s.h * .86, Wd: s.w * .74, ang: 0 }; };
+function lotPose(b) {
+  return { cx: lotX + b.x * lotS, cy: lotY + b.y * lotS, L: b.len * lotS, Wd: b.wid * lotS, ang: b.dir * Math.PI / 4 };
 }
 function freeSlot() {
   for (let i = 1; i < 8; i++) if (!G.slots[i].locked && !G.slots[i].bus) return i;
@@ -629,28 +660,28 @@ function freeSlot() {
 }
 
 function launch(b, si, vip) {
-  G.slots[si].bus = b; b.slot = si; b.state = 'moving';
-  const from = gridPose(b);
+  const from = lotPose(b);
+  if (si >= 0) { G.slots[si].bus = b; b.slot = si; }
+  b.state = 'moving'; G.dirty = true;
   if (vip) { b.mv = { phase: 2, t: 0, dur2: .7, from2: from, vip: true }; return; }
-  const ex = exitCells(b, G.cols, G.rows).length;
-  const dist = ex * cell + from.L * .55 + cell * .3;
-  b.mv = { phase: 1, t: 0, dur1: clamp(.12 + dist / 1400, .15, .45), dist, from, dur2: .38 };
+  const dist = travel(b, []).dist + b.len * .3;
+  b.mv = { phase: 1, t: 0, dur1: clamp(.12 + dist * lotS / 1500, .15, .5), dist, from, dur2: .4 };
 }
 function busPose(b) {
-  if (b.state === 'grid') {
-    const p = gridPose(b);
-    if (b.bump) { const k = Math.sin(Math.PI * Math.min(1, b.bump.t / .28)) * b.bump.dist; const [dx, dy] = DIRS[b.dir]; p.cx += dx * k; p.cy += dy * k; }
+  if (b.state === 'lot') {
+    const p = lotPose(b), [dx, dy] = DIR8[b.dir];
+    if (b.bump) { const k = Math.sin(Math.PI * Math.min(1, b.bump.t / .28)) * b.bump.dist; p.cx += dx * k; p.cy += dy * k; }
     if (b.shake > 0) p.cx += Math.sin(b.shake * 70) * 3 * (b.shake / .3);
     return p;
   }
   if (b.state === 'moving') {
     const m = b.mv;
     if (m.phase === 1) {
-      const t = m.t / m.dur1, k = t * t * m.dist, [dx, dy] = DIRS[b.dir];
+      const t = m.t / m.dur1, k = t * t * m.dist * lotS, [dx, dy] = DIR8[b.dir];
       return { ...m.from, cx: m.from.cx + dx * k, cy: m.from.cy + dy * k };
     }
     const to = slotPose(b.slot), t = easeInOut(Math.min(1, m.t / m.dur2)), a = m.from2;
-    let ang = a.ang; if (ang > Math.PI) ang -= Math.PI * 2;
+    let ang = a.ang % (Math.PI * 2); if (ang > Math.PI) ang -= Math.PI * 2;
     return {
       cx: lerp(a.cx, to.cx, t), cy: lerp(a.cy, to.cy, t) - Math.sin(Math.PI * t) * (m.vip ? 80 : 26),
       L: lerp(a.L, to.L, t), Wd: lerp(a.Wd, to.Wd, t), ang: lerp(ang, 0, t), scale: 1 + Math.sin(Math.PI * t) * (m.vip ? .35 : .12),
@@ -664,32 +695,23 @@ function busPose(b) {
 function tapBus(b) {
   G.tapped = true;
   if (G.vipMode) {
-    if (G.slots[0].bus || store.coins < 30) { G.vipMode = false; refreshHud(); return; }
-    store.coins -= 30; save(); G.vipMode = false;
+    if (b.crate) { toast('O VIP só chama ônibus'); return; }
+    if (G.slots[0].bus || store.coins < COST.vip) { G.vipMode = false; refreshHud(); return; }
+    store.coins -= COST.vip; save(); G.vipMode = false;
+    if (b.hidden) b.hidden = false;
     launch(b, 0, true); sfx('leave'); refreshHud(); return;
   }
-  const occ = occupancy(), path = exitCells(b, G.cols, G.rows);
-  for (let i = 0; i < path.length; i++) {
-    const id = occ[path[i][1] * G.cols + path[i][0]];
-    if (id !== -1) {
-      b.bump = { t: 0, dist: i * cell + cell * .16 };
-      G.buses[id].shake = .3; sfx('bump'); buzz(25);
-      return;
-    }
-  }
-  const gate = b.dir === 0 && G.gates.find(g => g.col === b.x && !g.open);
-  if (gate) {
-    b.bump = { t: 0, dist: path.length * cell + cell * .1 };
-    gate.shake = .3; sfx('bump'); buzz(25);
-    toast(`A cancela abre com mais ${gate.need - boarded()} embarques`);
+  const tr = travel(b, lotBuses());
+  if (tr.hit) {
+    b.bump = { t: 0, dist: tr.dist * lotS + 3 };
+    tr.hit.shake = .3; sfx('bump'); buzz(25);
     return;
   }
+  if (b.crate) { launch(b, -1, false); sfx('tap'); return; }
   const si = freeSlot();
   if (si < 0) { G.slotFlash = .6; b.shake = .3; sfx('full'); buzz(40); return; }
   launch(b, si, false); sfx('tap');
 }
-
-const boarded = () => G.total - G.queue.length;
 
 function onPointer(e) {
   if (!G || G.over) return;
@@ -705,39 +727,71 @@ function onPointer(e) {
     }
     return;
   }
-  const cx = Math.floor((x - gx) / cell), cy = Math.floor((y - gy) / cell);
-  if (cx < 0 || cy < 0 || cx >= G.cols || cy >= G.rows) return;
-  const id = occupancy()[cy * G.cols + cx];
-  if (id !== -1) tapBus(G.buses[id]);
+  const wx = (x - lotX) / lotS, wy = (y - lotY) / lotS;
+  let best = null, bd = 1e9;
+  for (const b of lotBuses()) {
+    const [dx, dy] = DIR8[b.dir], ex = wx - b.x, ey = wy - b.y;
+    const along = ex * dx + ey * dy, perp = -ex * dy + ey * dx;
+    if (Math.abs(along) <= b.len / 2 + 1.5 && Math.abs(perp) <= b.wid / 2 + 2) {
+      const d = ex * ex + ey * ey; if (d < bd) { bd = d; best = b; }
+    }
+  }
+  if (best) tapBus(best);
 }
 cv.addEventListener('pointerdown', onPointer);
 
+function pay(cost) {
+  if (store.coins < cost) { toast(`Você precisa de ${cost} moedas`); return false; }
+  store.coins -= cost; save(); refreshHud(); return true;
+}
+function resume() { G.stuckT = 0; if (G.over === 'lose') { G.over = false; $('modal').hidden = true; } }
 function buySlot() {
   const i = G.slots.findIndex(s => s.locked);
-  if (i < 0) return;
-  if (store.coins < 20) { toast('Você precisa de 20 moedas'); return; }
-  store.coins -= 20; save(); G.slots[i].locked = false;
+  if (i < 0 || !pay(COST.slot)) return;
+  G.slots[i].locked = false;
   G.puffs.push(...burst(slotPose(i).cx, slotPose(i).cy, '#5CCB5F', 10));
-  sfx('leave'); G.stuckT = 0;
-  if (G.over === 'lose') { G.over = false; $('modal').hidden = true; }
-  refreshHud();
+  sfx('leave'); resume(); refreshHud();
 }
 function toggleVip() {
   if (G.vipMode) { G.vipMode = false; refreshHud(); return; }
   if (G.slots[0].bus) { toast('A vaga VIP está ocupada'); return; }
-  if (store.coins < 30) { toast('Você precisa de 30 moedas'); return; }
-  if (!G.buses.some(b => b.state === 'grid')) return;
-  G.vipMode = true; G.stuckT = 0; sfx('tap');
-  if (G.over === 'lose') { G.over = false; $('modal').hidden = true; }
-  refreshHud();
+  if (store.coins < COST.vip) { toast(`Você precisa de ${COST.vip} moedas`); return; }
+  if (!G.buses.some(b => b.state === 'lot' && !b.crate)) return;
+  G.vipMode = true; sfx('tap'); resume(); refreshHud();
 }
-$('b-slot').addEventListener('click', () => G && buySlot());
-$('b-vip').addEventListener('click', () => G && toggleVip());
+// Organizar: pulls the passengers that fit the parked buses to the front of the line.
+function sortQueue() {
+  const need = {};
+  for (const s of G.slots) if (s.bus && !s.bus.crate && s.bus.state !== 'leaving') need[s.bus.color] = (need[s.bus.color] || 0) + s.bus.cap - s.bus.reserved;
+  const front = [], rest = [];
+  for (const p of G.queue) { if (need[p.c] > 0) { front.push(p); need[p.c]--; } else rest.push(p); }
+  const moved = front.some((p, i) => G.queue[i] !== p);
+  if (!moved) { toast(front.length ? 'A fila já está organizada' : 'Estacione um ônibus primeiro'); return; }
+  if (!pay(COST.sort)) return;
+  G.queue = front.concat(rest);
+  sfx('leave'); resume();
+}
+// Misturar: shuffles colors among the parked-lot buses of the same size.
+function mixColors() {
+  const groups = {};
+  for (const b of lotBuses()) if (!b.crate) (groups[b.cap] = groups[b.cap] || []).push(b);
+  if (!Object.values(groups).some(g => g.length > 1)) { toast('Não há ônibus para misturar'); return; }
+  if (!pay(COST.mix)) return;
+  for (const g of Object.values(groups)) {
+    const cols = g.map(b => b.color);
+    for (let i = cols.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cols[i], cols[j]] = [cols[j], cols[i]]; }
+    g.forEach((b, i) => { b.color = cols[i]; b.shake = .3; const p = lotPose(b); G.puffs.push(...burst(p.cx, p.cy, COLORS[b.color].c, 4)); });
+  }
+  sfx('clear'); resume();
+}
+$('b-vip').addEventListener('click', () => G && !G.over && toggleVip());
+$('b-sort').addEventListener('click', () => G && G.over !== 'win' && sortQueue());
+$('b-mix').addEventListener('click', () => G && G.over !== 'win' && mixColors());
 $('b-retry').addEventListener('click', () => { if (G) { sfx('tap'); startLevel(G.lv); } });
 $('btn-sound').addEventListener('click', () => { store.sound = !store.sound; save(); refreshHud(); if (store.sound) { unlockAudio(); sfx('tap'); } else if (silentEl) silentEl.pause(); });
 
 let toastMsg = '', toastT = 0;
-function toast(m) { toastMsg = m; toastT = 1.6; }
+function toast(m) { toastMsg = m; toastT = 1.8; }
 
 function burst(x, y, color, n) {
   return Array.from({ length: n }, () => {
@@ -750,13 +804,19 @@ function update(dt) {
   G.time += dt;
   if (toastT > 0) toastT -= dt;
   G.slotFlash = Math.max(0, G.slotFlash - dt);
+  if (G.dirty) recompute();
   for (const b of G.buses) {
     if (b.shake > 0) b.shake = Math.max(0, b.shake - dt);
     if (b.bump) { b.bump.t += dt; if (b.bump.t > .28) b.bump = null; }
     if (b.state === 'moving') {
       const m = b.mv; m.t += dt;
-      if (m.phase === 1 && m.t >= m.dur1) { m.from2 = busPose(b); m.phase = 2; m.t = 0; }
-      else if (m.phase === 2 && m.t >= m.dur2) { b.state = 'slot'; b.mv = null; G.puffs.push(...burst(slotPose(b.slot).cx, slotPose(b.slot).cy + slotH * .4, '#fff', 5)); }
+      if (m.phase === 1 && m.t >= m.dur1) {
+        if (b.crate) { b.state = 'gone'; continue; }
+        m.from2 = busPose(b); m.phase = 2; m.t = 0;
+      } else if (m.phase === 2 && m.t >= m.dur2) {
+        b.state = 'slot'; b.mv = null;
+        G.puffs.push(...burst(slotPose(b.slot).cx, slotPose(b.slot).cy + slotH * .4, '#fff', 5));
+      }
     } else if (b.state === 'leaving') {
       b.lt += dt / .55;
       if (b.lt >= 1) {
@@ -767,18 +827,6 @@ function update(dt) {
     }
   }
   // boarding: the front passenger walks to the leftmost parked bus of their color
-  // gates and mystery buses
-  for (const g of G.gates) {
-    if (g.shake > 0) g.shake = Math.max(0, g.shake - dt);
-    if (!g.open && boarded() >= g.need) { g.open = true; sfx('leave'); G.puffs.push(...burst(gx + (g.col + .5) * cell, gy - cell * .2, '#FFC83D', 10)); }
-    if (g.open) g.t = Math.min(1, g.t + dt / .4);
-  }
-  if (G.buses.some(b => b.hidden && b.state === 'grid')) {
-    const occ = occupancy();
-    for (const b of G.buses) if (b.hidden && b.state === 'grid' && exitCells(b, G.cols, G.rows).every(([x, y]) => occ[y * G.cols + x] === -1)) {
-      b.hidden = false; const p = gridPose(b); G.puffs.push(...burst(p.cx, p.cy, COLORS[b.color].c, 10)); sfx('pop');
-    }
-  }
   G.boardT -= dt;
   if (G.boardT <= 0 && G.queue.length) {
     const front = G.queue[0];
@@ -788,13 +836,16 @@ function update(dt) {
         G.queue.shift(); b.reserved++;
         const [fx, fy] = qPos(front.d);
         G.flyers.push({ c: front.c, fx, fy, b, t: 0 });
-        G.boardT = .075;
+        G.boardT = .06;
         $('pax-label').textContent = `${G.queue.length} passageiros na fila`;
         break;
       }
     }
   }
-  for (let i = 0; i < G.queue.length; i++) { const p = G.queue[i]; if (p.d > i) p.d = Math.max(i, p.d - dt * 14); }
+  for (let i = 0; i < G.queue.length; i++) {
+    const p = G.queue[i], gap = i - p.d;
+    if (gap) p.d += Math.sign(gap) * Math.min(Math.abs(gap), dt * Math.max(16, Math.abs(gap) * 3));
+  }
   for (let i = G.flyers.length - 1; i >= 0; i--) {
     const f = G.flyers[i]; f.t += dt / .3;
     if (f.t >= 1) {
@@ -808,7 +859,7 @@ function update(dt) {
   }
   if (G.over) return;
   const busy = G.flyers.length || G.buses.some(b => b.state === 'moving' || b.state === 'leaving');
-  if (!G.queue.length && !busy && G.buses.every(b => b.state === 'gone')) { win(); return; }
+  if (!G.queue.length && !busy && G.buses.every(b => b.crate || b.state === 'gone')) { win(); return; }
   if (G.queue.length && !busy && !G.vipMode) {
     const front = G.queue[0].c;
     const canBoard = G.slots.some(s => s.bus && s.bus.state === 'slot' && s.bus.color === front && s.bus.reserved < s.bus.cap);
@@ -832,8 +883,10 @@ function win() {
 function lose() {
   G.over = 'lose'; sfx('lose'); buzz(80);
   const acts = [];
-  if (G.slots.some(s => s.locked) && store.coins >= 20) acts.push({ label: 'Abrir vaga extra', coin: 20, fn: buySlot, keep: true });
-  if (!G.slots[0].bus && store.coins >= 30 && G.buses.some(b => b.state === 'grid')) acts.push({ label: 'Chamar ônibus VIP', coin: 30, cls: 'alt', fn: toggleVip, keep: true });
+  if (store.coins >= COST.sort && G.slots.some(s => s.bus && G.queue.some(p => p.c === s.bus.color)))
+    acts.push({ label: 'Organizar a fila', coin: COST.sort, fn: sortQueue });
+  if (G.slots.some(s => s.locked) && store.coins >= COST.slot) acts.push({ label: 'Abrir vaga extra', coin: COST.slot, cls: acts.length ? 'alt' : '', fn: buySlot });
+  if (!G.slots[0].bus && store.coins >= COST.vip && G.buses.some(b => b.state === 'lot' && !b.crate)) acts.push({ label: 'Chamar ônibus VIP', coin: COST.vip, cls: 'alt', fn: toggleVip });
   acts.push({ label: 'Tentar de novo', cls: acts.length ? 'ghost' : '', fn: () => startLevel(G.lv) });
   modal('As vagas lotaram!', 'Nenhum ônibus estacionado é da cor de quem está na frente da fila.', acts);
 }
@@ -853,141 +906,137 @@ function modal(title, text, actions) {
 }
 
 /* ---------- drawing ---------- */
+function drawCrate(c, cx, cy, L, Wd, ang, scale = 1) {
+  c.save(); c.translate(cx, cy);
+  c.save(); c.translate(0, Wd * .1); c.rotate(ang); c.scale(scale, scale);
+  rr(c, -Wd / 2, -L / 2, Wd, L, Wd * .12); c.fillStyle = 'rgba(43,45,82,.22)'; c.fill(); c.restore();
+  c.rotate(ang); c.scale(scale, scale);
+  rr(c, -Wd / 2, -L / 2, Wd, L, Wd * .12); c.fillStyle = '#B98A52'; c.fill();
+  rr(c, -Wd / 2 + Wd * .08, -L / 2 + Wd * .08, Wd * .84, L - Wd * .2, Wd * .08); c.fillStyle = '#E6C48E'; c.fill();
+  c.strokeStyle = 'rgba(150,100,50,.45)'; c.lineWidth = Math.max(1, Wd * .04);
+  for (const sx of [-.2, .2]) { c.beginPath(); c.moveTo(sx * Wd, -L / 2 + Wd * .15); c.lineTo(sx * Wd, L / 2 - Wd * .2); c.stroke(); }
+  const top = -L / 2 + Wd * .35, bot = L / 2 - Wd * .35, hh = Wd * .28, hwH = Wd * .25, sw = Wd * .08;
+  c.beginPath();
+  c.moveTo(0, top); c.lineTo(hwH, top + hh); c.lineTo(sw, top + hh); c.lineTo(sw, bot);
+  c.lineTo(-sw, bot); c.lineTo(-sw, top + hh); c.lineTo(-hwH, top + hh); c.closePath();
+  c.fillStyle = '#fff'; c.fill(); c.lineWidth = Math.max(1, Wd * .04); c.strokeStyle = 'rgba(120,80,40,.5)'; c.stroke();
+  c.restore();
+}
 function draw() {
   const c = ctx;
   c.clearRect(0, 0, W, H);
-  // queue road
+  // park scene behind the line of passengers
+  const sceneB = slotY + slotH + 8;
+  c.fillStyle = '#A9DB8A'; c.fillRect(0, 0, W, sceneB);
+  c.fillStyle = 'rgba(255,255,255,.12)';
+  for (let x = -W; x < W * 2; x += 36) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x + 18, 0); c.lineTo(x + 18 + sceneB * .4, sceneB); c.lineTo(x + sceneB * .4, sceneB); c.fill(); }
+  c.fillStyle = '#868FA3'; c.fillRect(0, slotY - 8, W, slotH + 16);
+  c.fillStyle = '#D8DCE6'; c.fillRect(0, slotY - 11, W, 3);
   if (G.qPts) {
     c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
     c.beginPath(); G.qPts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
-    c.strokeStyle = '#F4CDB0'; c.lineWidth = sp * 1.15; c.stroke();
-    c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 2; c.setLineDash([4, 8]); c.stroke();
+    c.strokeStyle = '#D8DCE6'; c.lineWidth = laneH * .9; c.stroke();
+    c.strokeStyle = '#868FA3'; c.lineWidth = laneH * .8; c.stroke();
     c.restore();
-    // bus stop sign at the head of the line
     const [hx, hy] = G.qPts[0];
-    rr(c, hx + sp * .7, hy - sp * .55, sp * 1.9, sp * .9, 6); c.fillStyle = '#3C4470'; c.fill();
-    c.fillStyle = '#FFF8F0'; c.font = `800 ${Math.round(sp * .42)}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('PONTO', hx + sp * 1.65, hy - sp * .08);
+    // bus stop shelter at the head of the line
+    const sw = laneH * 1.25, sh = laneH * .55, sx = hx + laneH * .35, sy = hy - sh / 2;
+    rr(c, sx, sy, sw, sh, 6); c.fillStyle = '#3C4470'; c.fill();
+    rr(c, sx + 3, sy + 3, sw - 6, sh * .45, 4); c.fillStyle = '#9FD3F5'; c.fill();
+    c.fillStyle = '#FFF8F0'; c.font = `800 ${Math.round(sh * .32)}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('PONTO', sx + sw / 2, sy + sh * .74);
   }
-  const maxVis = qPath.length - 1;
-  const r = sp * .4;
-  const vis = Math.min(G.queue.length, maxVis);
+  const cap = qCap(), vis = Math.min(G.queue.length, cap);
   for (let i = vis - 1; i >= 0; i--) {
-    const p = G.queue[i]; if (p.d > maxVis - .01) continue;
+    const p = G.queue[i]; if (p.d > cap - .01) continue;
     const [x, y] = qPos(p.d);
-    const hop = i === 0 ? Math.abs(Math.sin(G.time * 6)) * 2.5 : 0;
-    drawPax(c, x, y - hop, r, COLORS[p.c]);
+    const hop = i < 3 ? Math.abs(Math.sin(G.time * 6 + i)) * 2 : 0;
+    drawPax(c, x, y - hop, pr, COLORS[p.c]);
   }
-  if (G.queue.length > maxVis) {
-    const [x, y] = qPath[maxVis];
-    const label = '+' + (G.queue.length - maxVis);
-    c.font = `800 ${Math.round(sp * .5)}px Nunito, sans-serif`;
+  if (G.queue.length > cap) {
+    const [x, y] = qPath[qPath.length - 1], label = '+' + (G.queue.length - cap);
+    c.font = `800 ${Math.round(pr * 1.4)}px Nunito, sans-serif`;
     const w = c.measureText(label).width + 12;
-    rr(c, x - w / 2, y - sp * .4, w, sp * .8, sp * .4); c.fillStyle = INK; c.fill();
+    rr(c, x - w / 2, y - pr * 1.2, w, pr * 2.4, pr * 1.2); c.fillStyle = '#2B2D52'; c.fill();
     c.fillStyle = '#FFF8F0'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(label, x, y + 1);
   }
-  // slots
+  // painted parking stalls
   for (let i = 0; i < 8; i++) {
     const s = slotRect(i), sl = G.slots[i];
-    rr(c, s.x, s.y + 3, s.w, s.h, s.w * .2); c.fillStyle = 'rgba(43,45,82,.18)'; c.fill();
-    rr(c, s.x, s.y, s.w, s.h, s.w * .2);
+    rr(c, s.x, s.y, s.w, s.h, s.w * .16);
+    c.lineWidth = 3;
     if (sl.vip) {
-      c.fillStyle = G.vipMode ? '#FFE58A' : '#FFC83D'; c.fill();
+      c.fillStyle = G.vipMode ? 'rgba(255,200,61,.45)' : 'rgba(255,200,61,.15)'; c.fill();
+      c.strokeStyle = '#FFC83D'; c.stroke();
       if (!sl.bus) {
         c.save(); c.translate(s.x + s.w / 2, s.y + s.h / 2); c.rotate(-Math.PI / 2);
-        c.fillStyle = '#B5740E'; c.font = `800 ${Math.round(s.w * .42)}px "Baloo 2", sans-serif`;
+        c.fillStyle = '#FFC83D'; c.font = `800 ${Math.round(s.w * .42)}px "Baloo 2", sans-serif`;
         c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('VIP', 0, 2); c.restore();
       }
     } else if (sl.locked) {
-      c.fillStyle = '#4A5280'; c.fill();
-      c.fillStyle = '#7BE08A'; const cx = s.x + s.w / 2, cy = s.y + s.h / 2, a = s.w * .3, t = s.w * .1;
+      c.setLineDash([5, 4]); c.strokeStyle = '#7BE08A'; c.stroke(); c.setLineDash([]);
+      c.fillStyle = '#7BE08A'; const cx = s.x + s.w / 2, cy = s.y + s.h / 2, a = s.w * .24, t = s.w * .08;
       rr(c, cx - a, cy - t, a * 2, t * 2, t); c.fill(); rr(c, cx - t, cy - a, t * 2, a * 2, t); c.fill();
     } else {
-      c.fillStyle = G.slotFlash > 0 && !sl.bus && false ? '#F2545B' : '#4A5280'; c.fill();
-      if (G.slotFlash > 0) { c.lineWidth = 3; c.strokeStyle = `rgba(242,84,91,${G.slotFlash / .6})`; c.stroke(); }
+      c.strokeStyle = G.slotFlash > 0 ? `rgba(242,84,91,${.4 + G.slotFlash})` : 'rgba(255,255,255,.85)'; c.stroke();
     }
   }
   // parking lot
-  const pad = cell * .18;
-  rr(c, gx - pad, gy - pad + 5, G.cols * cell + pad * 2, G.rows * cell + pad * 2, cell * .35); c.fillStyle = 'rgba(43,45,82,.2)'; c.fill();
-  rr(c, gx - pad, gy - pad, G.cols * cell + pad * 2, G.rows * cell + pad * 2, cell * .35); c.fillStyle = '#3C4470'; c.fill();
-  c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1.5;
-  for (let x = 1; x < G.cols; x++) { c.beginPath(); c.moveTo(gx + x * cell, gy + 4); c.lineTo(gx + x * cell, gy + G.rows * cell - 4); c.stroke(); }
-  for (let y = 1; y < G.rows; y++) { c.beginPath(); c.moveTo(gx + 4, gy + y * cell); c.lineTo(gx + G.cols * cell - 4, gy + y * cell); c.stroke(); }
+  const pad = 4;
+  rr(c, lotX - pad, lotY - pad + 4, LOT_W * lotS + pad * 2, LOT_H * lotS + pad * 2, 18); c.fillStyle = 'rgba(43,45,82,.15)'; c.fill();
+  rr(c, lotX - pad, lotY - pad, LOT_W * lotS + pad * 2, LOT_H * lotS + pad * 2, 18); c.fillStyle = '#E4E6EE'; c.fill();
 
-  // hint on the first level
   let hint = null;
-  if (G.lv === 1 && !G.tapped) {
-    const occ = occupancy();
-    hint = G.buses.slice().reverse().find(b => b.state === 'grid' && exitCells(b, G.cols, G.rows).every(([x, y]) => occ[y * G.cols + x] === -1));
-  }
-  // buses: grid, then parked, then flying on top
-  const layers = [[], [], []];
+  if (G.lv === 1 && !G.tapped) hint = G.buses.slice().reverse().find(b => b.state === 'lot' && b.canExit && !b.crate);
+  const moving = [], parked = [];
   for (const b of G.buses) {
     if (b.state === 'gone') continue;
-    layers[b.state === 'grid' ? 0 : b.state === 'moving' ? 2 : 1].push(b);
+    if (b.state === 'lot') {
+      const p = busPose(b);
+      if ((G.vipMode && !b.crate) || b === hint) {
+        const pulse = .5 + .5 * Math.sin(G.time * 6);
+        c.save(); c.translate(p.cx, p.cy); c.rotate(p.ang);
+        rr(c, -p.Wd / 2 - 4, -p.L / 2 - 4, p.Wd + 8, p.L + 8, p.Wd * .35);
+        c.lineWidth = 3; c.strokeStyle = G.vipMode ? `rgba(255,170,0,${.5 + pulse * .5})` : `rgba(76,132,242,${.4 + pulse * .6})`; c.stroke();
+        c.restore();
+      }
+      if (b.crate) drawCrate(c, p.cx, p.cy, p.L, p.Wd, p.ang);
+      else if (b.hidden) {
+        drawBus(c, p.cx, p.cy, p.L, p.Wd, p.ang, MYSTERY, {});
+        c.font = `800 ${Math.round(p.Wd * .7)}px "Baloo 2", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillStyle = '#fff'; c.fillText('?', p.cx, p.cy + p.Wd * .06);
+      } else drawBus(c, p.cx, p.cy, p.L, p.Wd, p.ang, COLORS[b.color], { arrow: true });
+    } else if (b.state === 'moving') moving.push(b);
+    else parked.push(b);
   }
-  for (const b of layers[0]) {
-    const p = busPose(b);
-    if (G.vipMode || b === hint) {
-      const pulse = .5 + .5 * Math.sin(G.time * 6);
-      c.save(); c.translate(p.cx, p.cy); c.rotate(p.ang);
-      rr(c, -p.Wd / 2 - 4, -p.L / 2 - 4, p.Wd + 8, p.L + 8, p.Wd * .35);
-      c.lineWidth = 3; c.strokeStyle = G.vipMode ? `rgba(255,200,61,${.5 + pulse * .5})` : `rgba(255,255,255,${.4 + pulse * .6})`; c.stroke();
-      c.restore();
-    }
-    if (b.hidden) {
-      drawBus(c, p.cx, p.cy, p.L, p.Wd, p.ang, MYSTERY, {});
-      c.font = `800 ${Math.round(p.Wd * .62)}px "Baloo 2", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillStyle = '#fff'; c.fillText('?', p.cx, p.cy + p.Wd * .06);
-    } else drawBus(c, p.cx, p.cy, p.L, p.Wd, p.ang, COLORS[b.color], { arrow: true });
-  }
-  for (const b of layers[1]) {
+  for (const b of parked) {
     const p = busPose(b);
     drawBus(c, p.cx, p.cy, p.L, p.Wd, 0, COLORS[b.color], { seats: true, cap: b.cap, filled: b.filled, alpha: p.alpha, scale: p.scale });
   }
-  for (const b of layers[2]) {
-    const p = busPose(b), seats = b.mv.phase === 2 && b.mv.t / b.mv.dur2 > .6;
+  for (const b of moving) {
+    const p = busPose(b);
+    if (b.crate) { drawCrate(c, p.cx, p.cy, p.L, p.Wd, p.ang); continue; }
+    const seats = b.mv.phase === 2 && b.mv.t / b.mv.dur2 > .6;
     drawBus(c, p.cx, p.cy, p.L, p.Wd, p.ang, COLORS[b.color], { arrow: !seats, seats, cap: b.cap, filled: 0, scale: p.scale });
   }
   for (const f of G.flyers) {
     const to = slotPose(f.b.slot), t = easeInOut(f.t);
     const x = lerp(f.fx, to.cx, t), y = lerp(f.fy, to.cy, t) - Math.sin(Math.PI * t) * 30;
-    drawPax(c, x, y, r * (1 - t * .35), COLORS[f.c]);
+    drawPax(c, x, y, pr * (1 - t * .3), COLORS[f.c]);
   }
   for (const p of G.puffs) {
-    c.globalAlpha = 1 - p.t / p.life; c.fillStyle = p.color;
+    c.globalAlpha = Math.max(0, 1 - p.t / p.life); c.fillStyle = p.color;
     c.beginPath(); c.arc(p.x, p.y, p.r, 0, 7); c.fill();
   }
   c.globalAlpha = 1;
-  // barriers
-  for (const g of G.gates) {
-    const x0 = gx + g.col * cell + cell * .06, w = cell * .88, y = gy - pad * .55, h = Math.max(6, cell * .14);
-    const sh = g.shake ? Math.sin(g.shake * 70) * 2 : 0;
-    c.save(); c.translate(x0 + sh, y); c.rotate(-g.t * Math.PI * .42);
-    rr(c, 0, -h / 2, w, h, h / 2); c.fillStyle = '#FFC83D'; c.fill();
-    c.save(); c.clip(); c.fillStyle = INK;
-    for (let sx = -h; sx < w; sx += h * 1.6) { c.beginPath(); c.moveTo(sx, h / 2); c.lineTo(sx + h * .8, -h / 2); c.lineTo(sx + h * 1.6, -h / 2); c.lineTo(sx + h * .8, h / 2); c.fill(); }
-    c.restore(); c.restore();
-    c.beginPath(); c.arc(x0 + sh, y, h * .7, 0, 7); c.fillStyle = INK; c.fill();
-    if (!g.open) {
-      const left = g.need - boarded(), txt = String(left);
-      c.font = `800 ${Math.round(cell * .32)}px "Baloo 2", sans-serif`;
-      const bw = Math.max(cell * .5, c.measureText(txt).width + 12), bh = cell * .38, bx0 = x0 + w / 2 - bw / 2 + sh, by0 = y - bh - h * .4;
-      rr(c, bx0, by0 + 2, bw, bh, 6); c.fillStyle = 'rgba(43,45,82,.25)'; c.fill();
-      rr(c, bx0, by0, bw, bh, 6); c.fillStyle = '#FFF8F0'; c.fill();
-      c.fillStyle = INK; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, bx0 + bw / 2, by0 + bh / 2 + 1);
-    }
-  }
-  // captions
   let caption = '';
   if (toastT > 0) caption = toastMsg;
   else if (G.vipMode) caption = 'Escolha qualquer ônibus para a vaga VIP';
   else if (hint) caption = 'Toque num ônibus com a saída livre';
   if (caption) {
     c.font = `800 ${Math.round(clamp(W / 26, 13, 16))}px Nunito, sans-serif`;
-    const w = c.measureText(caption).width + 24, y = qTop + 14;
-    rr(c, W / 2 - w / 2, y - 13, w, 26, 13); c.fillStyle = INK; c.fill();
+    const w = c.measureText(caption).width + 24, y = lotY + 14;
+    rr(c, W / 2 - w / 2, y - 13, w, 26, 13); c.fillStyle = '#2B2D52'; c.fill();
     c.fillStyle = '#FFF8F0'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(caption, W / 2, y + 1);
   }
 }
@@ -1326,7 +1375,7 @@ window.addEventListener('resize', () => { if (!$('wood').hidden) woodLayout(); }
 window.__art = { drawBus, drawPax, drawBlock, COLORS, rr };
 window.__wood = { state: () => WG, place: woodPlace, fits, SHAPES, open: openWood, trayCenter, geom: () => ({ bx, by, bc }) };
 
-window.__busao = { genLevel, params, exitCells, state: () => G, tapBus, open: openBusGame, start: lv => startLevel(lv) };
+window.__busao = { genLevel, params, travel, state: () => G, tapBus, open: openBusGame, start: lv => startLevel(lv), lotBuses };
 
 drawThumbs();
 showHome();
