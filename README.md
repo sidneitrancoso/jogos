@@ -4,6 +4,8 @@ Joguinhos para celular (Android e iPhone) que funcionam no navegador e podem ser
 
 - **Busão Lotado**: tire os ônibus do estacionamento e leve cada passageiro no ônibus da sua cor.
 - **Blocos de Madeira**: arraste as peças para o tabuleiro e complete linhas e colunas.
+- **Chuva de Blocos**: gire e encaixe as peças que caem (no estilo Tetris).
+- **Bombinha**: bombas, tijolos e monstrinhos num labirinto (no estilo Bomberman).
 
 ## Como instalar no celular
 
