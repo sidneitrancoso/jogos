@@ -525,6 +525,14 @@ function drawBus(c, cx, cy, L, Wd, ang, col, o = {}) {
   c.restore();
 }
 
+/* Passenger seen from above at an angle: rounded body with a round head, glossy like a toy. */
+function drawPerson(c, x, y, r, col) {
+  c.beginPath(); c.ellipse(x, y + r * .95, r * .8, r * .3, 0, 0, 7); c.fillStyle = 'rgba(43,45,82,.2)'; c.fill();
+  rr(c, x - r * .82, y - r * .2, r * 1.64, r * 1.25, r * .7); c.fillStyle = col.d; c.fill();
+  rr(c, x - r * .72, y - r * .25, r * 1.44, r * 1.05, r * .6); c.fillStyle = col.c; c.fill();
+  c.beginPath(); c.arc(x, y - r * .55, r * .68, 0, 7); c.fillStyle = col.c; c.fill();
+  c.beginPath(); c.arc(x - r * .22, y - r * .78, r * .24, 0, 7); c.fillStyle = 'rgba(255,255,255,.55)'; c.fill();
+}
 /* Round little critter passenger. */
 function drawPax(c, x, y, r, col, alpha = 1) {
   c.save(); c.globalAlpha = alpha;
@@ -612,10 +620,10 @@ const COST = { vip: 30, sort: 20, mix: 20, slot: 20 };
 function params(lv) {
   const e = lv + 2;
   return {
-    n: Math.min(60, 20 + Math.round(e * 1.4)),
+    n: Math.min(70, 30 + Math.round(e * 1.6)),
     ncol: Math.min(8, 4 + Math.floor(e / 3)),
     k: lv <= 2 ? 3 : 4,
-    f: lv <= 3 ? 1.2 : lv <= 10 ? 1.06 : lv <= 20 ? .96 : .88,
+    f: lv <= 3 ? 1 : lv <= 10 ? .93 : lv <= 20 ? .87 : .82,
     diag: lv >= 3 ? Math.min(.45, .18 + lv * .02) : 0,
     mirror: lv % 3 !== 1,
     pM: .3, pL: lv >= 5 ? .1 : 0,
@@ -654,60 +662,99 @@ function inLot(o) {
 }
 
 /* Levels are built backwards: every new bus needs a free road out past the buses already parked,
-   so removing them in reverse order always works. The passenger line follows that order,
-   mixing at most k buses at a time, and is checked to fit in the 4 open slots. */
-function genLevel(lv) {
-  const P = params(lv), rng = mulberry32(lv * 7717 + 3);
-  const placed = [];
-  const tryPlace = b => {
-    b.o = obb(b);
-    if (!inLot(b.o)) return false;
-    for (const p of placed) if (overlap(b.o, p.o, .9)) return false;
-    if (travel(b, placed).hit) return false;
-    placed.push(b); return true;
-  };
-  for (let t = 0; t < 9000 && placed.length < P.n; t++) {
+   so some removal order always exists. New buses are parked right in front of older ones, which
+   makes long chains of blocked buses like in the reference game. The passengers come in whole-bus
+   color groups, mixing up to k buses ahead, so the player has to dig buried buses out with only
+   4 open slots; every line is checked by a simulated player before it is used. */
+function buildLayout(P, rng) {
+  const placed = [], GAP = .35;
+  const clear = (b, except) => { b.o = obb(b); return inLot(b.o) && !placed.some(p => p !== b && p !== except && overlap(b.o, p.o, GAP)); };
+  // 1) pack the lot tightly, ignoring the way out for now
+  for (let t = 0; t < 6000 && placed.length < P.n; t++) {
     const r = rng(), size = r < P.pL ? 2 : r < P.pL + P.pM ? 1 : 0;
-    const diag = rng() < P.diag;
-    const dir = diag ? 1 + 2 * Math.floor(rng() * 4) : 2 * Math.floor(rng() * 4);
-    let x = rng() * LOT_W, y = rng() * LOT_H;
-    if (placed.length > 2 && rng() < .75) { // pack next to an existing bus
-      const q = placed[Math.floor(rng() * placed.length)], a = rng() * Math.PI * 2, d = BUS_W * P.f * (1 + rng() * 1.6);
-      x = q.x + Math.cos(a) * d; y = q.y + Math.sin(a) * d;
-    }
-    const b = { x: Math.round(x * 2) / 2, y: Math.round(y * 2) / 2, dir, len: SIZES[size].len * P.f, wid: BUS_W * P.f, cap: SIZES[size].cap };
-    if (!tryPlace(b)) continue;
+    const dir = rng() < P.diag ? 1 + 2 * Math.floor(rng() * 4) : 2 * Math.floor(rng() * 4);
+    const b = { x: Math.round(rng() * LOT_W * 2) / 2, y: Math.round(rng() * LOT_H * 2) / 2, dir, len: SIZES[size].len * P.f, wid: BUS_W * P.f, cap: SIZES[size].cap };
+    if (!clear(b)) continue;
+    placed.push(b);
     if (P.mirror && Math.abs(b.x - LOT_W / 2) > 3) {
       const m = { ...b, x: LOT_W - b.x, dir: (8 - b.dir) % 8 };
-      if (!tryPlace(m)) placed.pop();
+      if (clear(m)) placed.push(m); else placed.pop();
     }
+  }
+  // 2) make sure it can be cleared: peel off every bus that can leave; when the rest is stuck,
+  //    turn one stuck bus (flipping first) so it can drive out, or take it away if nothing works
+  for (let guard = 0; guard < 600; guard++) {
+    const left = placed.slice();
+    let moved = true;
+    while (left.length && moved) {
+      moved = false;
+      for (let i = left.length - 1; i >= 0; i--) if (!travel(left[i], left).hit) { left.splice(i, 1); moved = true; }
+    }
+    if (!left.length) break;
+    let fixed = false;
+    const stuck = left.slice().sort(() => rng() - .5);
+    for (const b of stuck) {
+      const turns = [4, 1, 7, 2, 6, 3, 5].map(k => (b.dir + k) % 8).filter(d => P.diag || d % 2 === 0);
+      for (const nd of turns) {
+        const old = b.dir; b.dir = nd;
+        if (clear(b) && !travel(b, left).hit) { fixed = true; break; }
+        b.dir = old; b.o = obb(b);
+      }
+      if (fixed) break;
+    }
+    if (!fixed) placed.splice(placed.indexOf(stuck[0]), 1);
+  }
+  return placed;
+}
+// A random order in which the buses can really leave, one free bus at a time.
+function removalOrder(list, rng) {
+  const left = list.slice(), order = [];
+  while (left.length) {
+    const free = left.filter(b => !travel(b, left).hit);
+    if (!free.length) return null;
+    const b = free[Math.floor(rng() * free.length)];
+    order.push(b); left.splice(left.indexOf(b), 1);
+  }
+  return order;
+}
+function genLevel(lv) {
+  const P = params(lv), rng = mulberry32(lv * 7717 + 3);
+  let best = null;
+  for (let a = 0; a < 4; a++) {
+    const placed = buildLayout(P, rng);
+    const free = placed.filter(b => !travel(b, placed).hit).length;
+    const score = placed.length * 2 - free * 6;
+    if (!best || score > best.score) best = { placed, score };
   }
   const pal = COLORS.map((_, i) => i);
   for (let i = pal.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pal[i], pal[j]] = [pal[j], pal[i]]; }
   const use = pal.slice(0, P.ncol);
-  const buses = placed.map((b, i) => {
-    const crate = i < placed.length - 2 && rng() < P.crates;
-    return { x: b.x, y: b.y, dir: b.dir, len: b.len, wid: b.wid, id: i, crate, cap: crate ? 0 : b.cap,
+  const buses = best.placed.map((b, i) => {
+    const crate = rng() < P.crates;
+    return { x: b.x, y: b.y, dir: b.dir, len: b.len, wid: b.wid, o: b.o, id: i, crate, cap: crate ? 0 : b.cap,
       color: crate ? -1 : use[Math.floor(rng() * use.length)], hidden: !crate && rng() < P.hidden };
   });
-  const order = buses.filter(b => !b.crate).reverse();
-  let queue = null;
-  for (let tries = 0; tries < 40 && !queue; tries++) {
+  const full = removalOrder(buses, rng) || buses.slice().reverse(), order = full.filter(b => !b.crate);
+  let pick = null;
+  for (let tries = 0; tries < 60; tries++) {
     const q = [], active = [];
     let i = 0;
     while (i < order.length || active.length) {
-      while (active.length < P.k && i < order.length) { active.push({ c: order[i].color, r: order[i].cap }); i++; }
-      const j = rng() < .3 ? 0 : Math.floor(rng() * active.length);
-      const a = active[j], chunk = Math.min(a.r, 1 + Math.floor(rng() * 3));
-      for (let n = 0; n < chunk; n++) q.push(a.c);
-      a.r -= chunk;
-      if (!a.r) active.splice(j, 1);
+      while (active.length < P.k && i < order.length) {
+        const b = order[i++];
+        active.push({ c: b.color, groups: b.cap === 10 && rng() < .5 ? [6, 4] : [b.cap] });
+      }
+      const j = rng() < .25 ? 0 : Math.floor(rng() * active.length);
+      const a = active[j], n = a.groups.shift();
+      for (let k = 0; k < n; k++) q.push(a.c);
+      if (!a.groups.length) active.splice(j, 1);
     }
     const sim = simulate(order, q);
-    if (sim && sim.maxS <= OPEN_SLOTS) queue = q;
+    if (sim && sim.maxS <= OPEN_SLOTS && (!pick || sim.maxS > pick.maxS)) pick = { q, maxS: sim.maxS };
+    if (pick && pick.maxS === OPEN_SLOTS && tries > 8) break;
   }
-  if (!queue) { queue = []; for (const b of order) for (let n = 0; n < b.cap; n++) queue.push(b.color); }
-  return { P, buses, queue };
+  const queue = pick ? pick.q : order.flatMap(b => Array(b.cap).fill(b.color));
+  return { P, buses, queue, solution: full.map(b => b.id), pressure: pick ? pick.maxS : 1 };
 }
 function simulate(order, q) {
   const slots = [];
@@ -730,7 +777,7 @@ function startLevel(lv) {
     queue: L.queue.map((c, i) => ({ c, d: i + 9 })),
     slots: Array.from({ length: 8 }, (_, i) => ({ bus: null, locked: i > OPEN_SLOTS, vip: i === 0 })),
     flyers: [], puffs: [], vipMode: false, over: false, tapped: false, boardT: 0, stuckT: 0, slotFlash: 0, time: 0,
-    total: L.queue.length, dirty: true,
+    total: L.queue.length, dirty: true, solution: L.solution,
   };
   $('lv-label').textContent = 'Nível ' + lv;
   $('modal').hidden = true;
@@ -769,43 +816,47 @@ function layout() {
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (!G) return;
-  const qRows = G.total > 150 ? 3 : 2, zoneH = clamp(H * .25, 120, 240);
-  laneH = zoneH / qRows;
-  pr = clamp(laneH / 7.6, 5.5, 13);
-  sp = pr * 1.55;
   slotGap = Math.max(4, W * .014);
   slotW = Math.min(50, (W - 12 - 7 * slotGap) / 8);
   slotH = slotW * 1.55;
   qTop = 4;
-  qBottom = qTop + qRows * laneH;
-  slotY = qBottom + 12;
+  qBottom = qTop + clamp(H * .27, 150, 270);
+  slotY = qBottom + 26;
   slotX0 = (W - (8 * slotW + 7 * slotGap)) / 2;
-  const top = slotY + slotH + 16, avail = H - top - 6;
+  const top = slotY + slotH + 14, avail = H - top - 6;
   lotS = Math.min((W - 10) / LOT_W, avail / LOT_H);
   lotX = (W - LOT_W * lotS) / 2;
   lotY = top + (avail - LOT_H * lotS) * .3;
-  buildQueuePath(qRows);
+  buildQueuePath();
 }
 
-// Serpentine road with round U-turns, sampled every `sp` pixels; each sample holds a row of 3.
-function buildQueuePath(qRows) {
-  const m = laneH / 2, left = m, right = W - m, y0 = qBottom - laneH / 2;
-  const pts = [[W * .56, y0], [left, y0]];
-  for (let r = 1; r < qRows; r++) {
-    const y = y0 - r * laneH, cx = pts[pts.length - 1][0], atLeft = cx === left, cy = y + laneH / 2;
-    for (let k = 1; k <= 12; k++) {
-      const th = Math.PI * k / 12;
-      pts.push([cx + (atLeft ? -1 : 1) * Math.sin(th) * m, cy + Math.cos(th) * m]);
-    }
-    pts.push([atLeft ? right : left, y]);
-  }
-  G.qPts = pts;
+// The crowd waits on a ring road around a little garden, 5 people side by side.
+// The line starts at the bottom middle (where people walk down to the buses) and goes all the way round.
+const LANES = 5;
+function buildQueuePath() {
+  laneH = (qBottom - qTop) * .34;
+  pr = clamp(laneH / (LANES * 2.05), 4, 9);
+  sp = pr * 1.7;
+  const m = laneH / 2 + 2, x0 = m, x1 = W - m, y0 = qTop + m, y1 = qBottom - m;
+  const rad = Math.min((y1 - y0) / 2, laneH * 1.1);
+  const pts = [[W / 2 - pr * 2, y1], [x0 + rad, y1]];
+  const arc = (cx, cy, a0, a1) => { for (let k = 1; k <= 10; k++) { const a = a0 + (a1 - a0) * k / 10; pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]); } };
+  arc(x0 + rad, y1 - rad, Math.PI / 2, Math.PI);
+  pts.push([x0, y0 + rad]);
+  arc(x0 + rad, y0 + rad, Math.PI, Math.PI * 1.5);
+  pts.push([x1 - rad, y0]);
+  arc(x1 - rad, y0 + rad, -Math.PI / 2, 0);
+  pts.push([x1, y1 - rad]);
+  arc(x1 - rad, y1 - rad, 0, Math.PI / 2);
+  pts.push([W / 2 + laneH * .75, y1]);
+  G.qPts = pts; G.ring = { x0, x1, y0, y1, rad };
+  G.qExit = [W / 2 - pr * 2, qBottom + 6];
   qPath = []; qNorm = [];
   let seg = 0, along = 0;
   for (let s = 0; ; s += sp) {
     while (seg < pts.length - 1) {
       const [ax, ay] = pts[seg], [bx2, by2] = pts[seg + 1], len = Math.hypot(bx2 - ax, by2 - ay);
-      if (s - along <= len) {
+      if (len && s - along <= len) {
         const t = (s - along) / len;
         qPath.push([lerp(ax, bx2, t), lerp(ay, by2, t)]); qNorm.push([-(by2 - ay) / len, (bx2 - ax) / len]);
         break;
@@ -815,11 +866,11 @@ function buildQueuePath(qRows) {
     if (seg >= pts.length - 1) break;
   }
 }
-const qCap = () => (qPath.length - 1) * 3;
+const qCap = () => (qPath.length - 1) * LANES;
 function qSpot(i) {
-  const row = Math.min(qPath.length - 1, Math.floor(i / 3)), lane = (i % 3) - 1;
+  const row = Math.min(qPath.length - 1, Math.floor(i / LANES)), lane = (i % LANES) - (LANES - 1) / 2;
   const [x, y] = qPath[row], [nx, ny] = qNorm[row];
-  return [x + nx * lane * pr * 2.05, y + ny * lane * pr * 2.05];
+  return [x + nx * lane * pr * 2, y + ny * lane * pr * 2];
 }
 function qPos(d) {
   d = Math.max(0, d);
@@ -1025,7 +1076,7 @@ function update(dt) {
     if (gap) p.d += Math.sign(gap) * Math.min(Math.abs(gap), dt * Math.max(16, Math.abs(gap) * 3));
   }
   for (let i = G.flyers.length - 1; i >= 0; i--) {
-    const f = G.flyers[i]; f.t += dt / .3;
+    const f = G.flyers[i]; f.t += dt / .7;
     if (f.t >= 1) {
       G.flyers.splice(i, 1); const b = f.b; b.filled++; sfx('pop');
       if (b.filled >= b.cap) { b.state = 'leaving'; b.lt = 0; sfx('leave'); }
@@ -1103,39 +1154,52 @@ function drawCrate(c, cx, cy, L, Wd, ang, scale = 1) {
 function draw() {
   const c = ctx;
   c.clearRect(0, 0, W, H);
-  // park scene behind the line of passengers
+  // park scene: grass, ring road with a garden in the middle, sidewalk down to the stalls
   const sceneB = slotY + slotH + 8;
   c.fillStyle = '#A9DB8A'; c.fillRect(0, 0, W, sceneB);
-  c.fillStyle = 'rgba(255,255,255,.12)';
+  c.fillStyle = 'rgba(255,255,255,.1)';
   for (let x = -W; x < W * 2; x += 36) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x + 18, 0); c.lineTo(x + 18 + sceneB * .4, sceneB); c.lineTo(x + sceneB * .4, sceneB); c.fill(); }
-  c.fillStyle = '#868FA3'; c.fillRect(0, slotY - 8, W, slotH + 16);
-  c.fillStyle = '#D8DCE6'; c.fillRect(0, slotY - 11, W, 3);
-  if (G.qPts) {
-    c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
-    c.beginPath(); G.qPts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
-    c.strokeStyle = '#D8DCE6'; c.lineWidth = laneH * .9; c.stroke();
-    c.strokeStyle = '#868FA3'; c.lineWidth = laneH * .8; c.stroke();
-    c.restore();
-    const [hx, hy] = G.qPts[0];
-    // bus stop shelter at the head of the line
-    const sw = laneH * 1.25, sh = laneH * .55, sx = hx + laneH * .35, sy = hy - sh / 2;
-    rr(c, sx, sy, sw, sh, 6); c.fillStyle = '#3C4470'; c.fill();
-    rr(c, sx + 3, sy + 3, sw - 6, sh * .45, 4); c.fillStyle = '#9FD3F5'; c.fill();
-    c.fillStyle = '#FFF8F0'; c.font = `800 ${Math.round(sh * .32)}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('PONTO', sx + sw / 2, sy + sh * .74);
+  c.fillStyle = '#868FA3'; c.fillRect(0, slotY - 10, W, slotH + 18);
+  c.fillStyle = '#D8DCE6'; c.fillRect(0, slotY - 13, W, 3);
+  const [ex, ey] = G.qExit;
+  rr(c, ex - pr * 2.2, qBottom - laneH * .5, pr * 4.4, slotY - qBottom + laneH * .5, pr); c.fillStyle = '#C9CED9'; c.fill();
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+  c.beginPath(); G.qPts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath();
+  c.strokeStyle = '#EDEFF4'; c.lineWidth = laneH + 8; c.stroke();
+  c.strokeStyle = '#7E879B'; c.lineWidth = laneH; c.stroke();
+  c.restore();
+  const R = G.ring;
+  rr(c, R.x0 + laneH / 2 + 4, R.y0 + laneH / 2 + 4, R.x1 - R.x0 - laneH - 8, R.y1 - R.y0 - laneH - 8, Math.max(4, R.rad - laneH / 2));
+  c.fillStyle = '#93CF73'; c.fill();
+  const iw = R.x1 - R.x0 - laneH, ih = R.y1 - R.y0 - laneH;
+  if (ih > 16) {
+    for (let k = 0; k < 7; k++) { // trees and bushes
+      const tx = R.x0 + laneH / 2 + iw * (.1 + k * .13), ty = R.y0 + laneH / 2 + ih * (k % 2 ? .35 : .65), tr = Math.min(ih * .3, 12);
+      c.beginPath(); c.ellipse(tx, ty + tr * .7, tr, tr * .35, 0, 0, 7); c.fillStyle = 'rgba(43,45,82,.15)'; c.fill();
+      c.beginPath(); c.arc(tx, ty, tr, 0, 7); c.fillStyle = k % 3 ? '#5FAE4E' : '#4C9A42'; c.fill();
+      c.beginPath(); c.arc(tx - tr * .3, ty - tr * .3, tr * .4, 0, 7); c.fillStyle = 'rgba(255,255,255,.18)'; c.fill();
+    }
   }
-  const cap = qCap(), vis = Math.min(G.queue.length, cap);
-  for (let i = vis - 1; i >= 0; i--) {
+  for (const sx of [slotX0 - 2, slotX0 + 8 * slotW + 7 * slotGap - pr * 7 + 2]) { // bus stop shelters beside the exit path
+    const shw = pr * 7, shh = pr * 2.6, shy = slotY - 13 - shh - 2;
+    if (Math.abs(sx + shw / 2 - ex) < shw) continue;
+    rr(c, sx, shy, shw, shh, 4); c.fillStyle = '#3C4470'; c.fill();
+    rr(c, sx + 2, shy + 2, shw - 4, shh * .45, 3); c.fillStyle = '#9FD3F5'; c.fill();
+  }
+  // the crowd, drawn back to front so heads overlap naturally
+  const cap = qCap(), vis = Math.min(G.queue.length, cap), people = [];
+  for (let i = 0; i < vis; i++) {
     const p = G.queue[i]; if (p.d > cap - .01) continue;
     const [x, y] = qPos(p.d);
-    const hop = i < 3 ? Math.abs(Math.sin(G.time * 6 + i)) * 2 : 0;
-    drawPax(c, x, y - hop, pr, COLORS[p.c]);
+    people.push([x, y - (i < LANES ? Math.abs(Math.sin(G.time * 7 + i)) * 1.5 : 0), p.c]);
   }
+  people.sort((a, b) => a[1] - b[1]);
+  for (const [x, y, col] of people) drawPerson(c, x, y, pr, COLORS[col]);
   if (G.queue.length > cap) {
     const [x, y] = qPath[qPath.length - 1], label = '+' + (G.queue.length - cap);
-    c.font = `800 ${Math.round(pr * 1.4)}px Nunito, sans-serif`;
+    c.font = `800 ${Math.round(pr * 2)}px Nunito, sans-serif`;
     const w = c.measureText(label).width + 12;
-    rr(c, x - w / 2, y - pr * 1.2, w, pr * 2.4, pr * 1.2); c.fillStyle = '#2B2D52'; c.fill();
+    rr(c, x - w / 2, y - pr * 1.6, w, pr * 3.2, pr * 1.6); c.fillStyle = '#2B2D52'; c.fill();
     c.fillStyle = '#FFF8F0'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(label, x, y + 1);
   }
   // painted parking stalls
@@ -1197,10 +1261,14 @@ function draw() {
     const seats = b.mv.phase === 2 && b.mv.t / b.mv.dur2 > .6;
     drawBus(c, p.cx, p.cy, p.L, p.Wd, p.ang, COLORS[b.color], { arrow: !seats, seats, cap: b.cap, filled: 0, scale: p.scale });
   }
+  // boarding: people walk in single file down the sidewalk and along the stalls into their bus
   for (const f of G.flyers) {
-    const to = slotPose(f.b.slot), t = easeInOut(f.t);
-    const x = lerp(f.fx, to.cx, t), y = lerp(f.fy, to.cy, t) - Math.sin(Math.PI * t) * 30;
-    drawPax(c, x, y, pr * (1 - t * .3), COLORS[f.c]);
+    const to = slotPose(f.b.slot), t = f.t;
+    let x, y, sc = 1;
+    if (t < .3) { const k = t / .3; x = lerp(f.fx, ex, k); y = lerp(f.fy, ey, k); }
+    else if (t < .85) { const k = (t - .3) / .55; x = lerp(ex, to.cx, k); y = lerp(ey, slotY - 6, k); }
+    else { const k = (t - .85) / .15; x = to.cx; y = lerp(slotY - 6, to.cy - to.L * .2, k); sc = 1 - k * .5; }
+    drawPerson(c, x, y - Math.abs(Math.sin(t * 40)) * 2, pr * sc, COLORS[f.c]);
   }
   for (const p of G.puffs) {
     c.globalAlpha = Math.max(0, 1 - p.t / p.life); c.fillStyle = p.color;
