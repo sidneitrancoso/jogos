@@ -116,14 +116,19 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
 .boost[disabled] { opacity: .45; }
 
 /* ---------- Blocos de Madeira ---------- */
-.wood-screen { display: flex; flex-direction: column; gap: 6px; background: #6B4423; color: #FFF1DC;
+.wood-screen { display: flex; flex-direction: column; gap: 6px; color: #5A2E0E;
+  background: repeating-linear-gradient(90deg, rgba(150,85,30,0) 0 30px, rgba(150,85,30,.08) 30px 33px, rgba(255,235,195,.10) 33px 52px, rgba(150,85,30,.06) 52px 54px, rgba(150,85,30,0) 54px 92px, rgba(110,60,20,.22) 92px 94px),
+    linear-gradient(180deg, #E9B676, #D99F5E);
   padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
-.wood-screen .icon-btn, .wood-screen .coins { background: #8A5A31; color: #FFF1DC; box-shadow: 0 3px 0 #4A2D14; }
-.wood-screen .level-title span { color: #E9C99A; }
-.wood-screen .level-title b { font-size: 1.9rem; }
+.wood-screen > .bar, .wood-screen > #w-wrap { position: relative; z-index: 1; }
+.w-leaves { position: absolute; top: 0; left: 0; width: 34%; max-width: 170px; pointer-events: none; z-index: 0; }
+.w-leaves.right { left: auto; right: 0; transform: scaleX(-1); }
+.wood-screen .icon-btn { background: #8A4F1E; color: #FFF1DC; box-shadow: 0 3px 0 #5A300F; }
+.wood-screen .level-title b { color: #6B3410; }
+.wood-screen .level-title span { color: #8A5527; }
 #w-wrap { flex: 1; position: relative; min-height: 0; }
 #wcv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
-.pill.wood { background: #8A5A31; }
+.pill.wood { background: #B8742F; }
 
 /* ---------- Chuva de Blocos / Bombinha ---------- */
 .cv-wrap { flex: 1; position: relative; min-height: 0; }
@@ -234,7 +239,7 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
       <canvas class="thumb" id="thumb-wood" width="112" height="112"></canvas>
       <span class="meta">
         <h2>Blocos de Madeira</h2>
-        <p>Arraste as peças para o tabuleiro e complete linhas e colunas para limpar.</p>
+        <p>Arraste as peças para o tabuleiro, complete linhas e colunas e colete as joias das fases.</p>
         <span class="pill wood" id="wood-pill">Jogar</span>
       </span>
     </button>
@@ -288,15 +293,16 @@ button.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(4
 </section>
 
 <section id="wood" class="screen wood-screen" hidden>
+  <svg class="w-leaves" viewBox="0 0 120 70" aria-hidden="true"><g fill="#4FA03A"><path d="M0 0h52c-6 14-22 22-36 20C8 19 2 12 0 6z" fill="#3E8A2E"/><path d="M14 6c14-6 30-2 40 8-14 4-30 2-40-8z"/><path d="M4 14c8 8 10 22 4 32-8-8-10-22-4-32z"/><path d="M30 14c12 2 22 12 24 24-12-2-22-12-24-24z" fill="#62B547"/><path d="M58 2c12-2 24 4 30 14-12 2-24-4-30-14z" fill="#62B547"/><path d="M0 26c6 6 6 18 0 26z" fill="#3E8A2E"/></g><g stroke="#2F6E22" stroke-width="1.2" fill="none"><path d="M14 6l40 8M30 14l24 24M58 2l30 14M4 14l4 32"/></g></svg>
+  <svg class="w-leaves right" viewBox="0 0 120 70" aria-hidden="true"><g fill="#4FA03A"><path d="M0 0h52c-6 14-22 22-36 20C8 19 2 12 0 6z" fill="#3E8A2E"/><path d="M14 6c14-6 30-2 40 8-14 4-30 2-40-8z"/><path d="M4 14c8 8 10 22 4 32-8-8-10-22-4-32z"/><path d="M30 14c12 2 22 12 24 24-12-2-22-12-24-24z" fill="#62B547"/><path d="M58 2c12-2 24 4 30 14-12 2-24-4-30-14z" fill="#62B547"/><path d="M0 26c6 6 6 18 0 26z" fill="#3E8A2E"/></g><g stroke="#2F6E22" stroke-width="1.2" fill="none"><path d="M14 6l40 8M30 14l24 24M58 2l30 14M4 14l4 32"/></g></svg>
   <div class="bar">
     <button class="icon-btn" id="w-back" type="button" aria-label="Voltar para a biblioteca">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
     </button>
-    <div class="level-title"><b id="w-score">0</b><span>pontos</span></div>
+    <div class="level-title"><b id="w-title">Clássico</b><span id="w-sub">recorde 0</span></div>
     <button class="icon-btn" id="w-restart" type="button" aria-label="Começar de novo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>
     </button>
-    <div class="coins best"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" fill="#FFC83D" stroke="#B5740E" stroke-width="1.6" stroke-linejoin="round"/></svg><span id="w-best">0</span></div>
   </div>
   <div id="w-wrap"><canvas id="wcv"></canvas></div>
 </section>
@@ -597,18 +603,18 @@ function drawThumbs() {
       c.fillStyle = INK; c.fillText(ch, x + 8.5, y + 10);
     });
   c = setupThumb($('thumb-wood'));
-  const g = c.createLinearGradient(0, 0, 112, 112); g.addColorStop(0, '#8A5A31'); g.addColorStop(1, '#6E4524');
+  const g = c.createLinearGradient(0, 0, 0, 112); g.addColorStop(0, '#EDBB7C'); g.addColorStop(1, '#D59A58');
   c.fillStyle = g; rr(c, 0, 0, 112, 112, 16); c.fill();
-  const cells = [[1,1],[2,1],[2,2],[2,3],[4,2],[5,2],[4,3],[1,4],[2,4],[3,4],[4,4],[5,4],[1,5],[3,5],[5,5],[4,5]];
-  for (const [x, y] of cells) {
-    rr(c, 6 + x * 15, 6 + y * 15, 14, 14, 3); c.fillStyle = '#E9B97A'; c.fill();
-    rr(c, 8 + x * 15, 8 + y * 15, 10, 10, 2); c.fillStyle = '#F6D29E'; c.fill();
-  }
+  c.fillStyle = '#3A1906'; c.fillRect(14, 14, 84, 84);
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { c.fillStyle = '#6A3514'; c.fillRect(14.5 + x * 10.5, 14.5 + y * 10.5, 9.5, 9.5); }
+  const cells = [[1,1],[2,1],[2,2],[2,3],[5,1],[5,2],[6,2],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[0,6],[1,6],[3,6],[4,6],[6,6],[0,7],[3,7],[6,7],[7,7]];
+  for (const [x, y] of cells) drawBlock(c, 14 + x * 10.5, 14 + y * 10.5, 10.5);
+  drawGem(c, 2, 14 + 4.5 * 10.5, 14 + 5.5 * 10.5, 3.6);
 }
 function showHome() {
   $('game').hidden = true; $('wood').hidden = true; $('home').hidden = false; $('modal').hidden = true;
   $('bus-pill').textContent = 'Nível ' + store.level;
-  $('wood-pill').textContent = store.woodBest ? 'Recorde ' + store.woodBest : 'Jogar';
+  $('wood-pill').textContent = store.woodLevel > 1 ? 'Fase ' + store.woodLevel : store.woodBest ? 'Recorde ' + store.woodBest : 'Jogar';
   $('tet-pill').textContent = store.tetStage > 1 ? 'Fase ' + tetStageName(store.tetStage) : 'Jogar';
   $('bomb-pill').textContent = store.bombBest ? 'Até o nível ' + store.bombBest : 'Jogar';
   $('cw-pill').textContent = (store.cwLevel || 1) > 1 || store.cw ? 'Nível ' + (store.cwLevel || 1) : 'Jogar';
@@ -1315,11 +1321,6 @@ window.addEventListener('resize', () => { if (!$('game').hidden) layout(); });
 
 /* ================= Blocos de Madeira ================= */
 const WN = 8;
-const WOOD_TONES = [
-  { c: '#E6B675', l: '#F5D29F', d: '#B9834A' },
-  { c: '#DDA864', l: '#EFC68A', d: '#AE773D' },
-  { c: '#EBC083', l: '#F8DBAE', d: '#BF8D55' },
-];
 const SHAPES = (() => {
   const bases = [
     [[0, 0]],
@@ -1356,10 +1357,17 @@ const SHAPES = (() => {
 })();
 // how often each base shape shows up (big 3x3 and 5-long pieces are rarer)
 const BASE_WEIGHT = [6, 8, 8, 6, 3, 8, 2, 8, 4, 5, 5, 6, 4, 4, 4, 3];
+// gems of the "Joias" mode: yellow, blue, red heart, purple, green drop
+const GEMS = [
+  { c: '#FFC83D', d: '#C98A00' }, { c: '#3BA4FF', d: '#1663C7' }, { c: '#FF4D63', d: '#B81B33' },
+  { c: '#A55CFF', d: '#6A2BC4' }, { c: '#35C76A', d: '#178A41' },
+];
+const RAINBOW = ['#FF4747', '#FF9A1F', '#FFE03D', '#43D865', '#3BA4FF', '#8F5BFF'];
+// board cell: 0 empty, 1 wood block, 2 + k wood block holding gem k
 
 const wcv = $('wcv'), wctx = wcv.getContext('2d'), wwrap = $('w-wrap');
 let WG = null, woodRunning = false, wLast = 0;
-let WW = 0, WH = 0, bx = 0, by = 0, bc = 40, trayY = 0, traySlotW = 0, trayCell = 20;
+let WW = 0, WH = 0, bx = 0, by = 0, bc = 40, trayY = 0, traySlotW = 0, trayCell = 20, hudY = 0, hudH = 60;
 
 function pickShape(rng = Math.random) {
   const total = BASE_WEIGHT.reduce((a, b) => a + b, 0);
@@ -1379,36 +1387,91 @@ function fitsAnywhere(board, si) {
   for (let y = 0; y < WN; y++) for (let x = 0; x < WN; x++) if (fits(board, si, x, y)) return true;
   return false;
 }
+function hasFullLine(board) {
+  for (let i = 0; i < WN; i++) {
+    let rf = true, cf = true;
+    for (let j = 0; j < WN; j++) { if (!board[i * WN + j]) rf = false; if (!board[j * WN + i]) cf = false; }
+    if (rf || cf) return true;
+  }
+  return false;
+}
 // New hand of three pieces; tries to make sure at least one of them fits.
-function newTray(board) {
+// In the Joias mode some pieces carry a gem that is still needed.
+function newTray(board, goals) {
   let t = null;
   for (let a = 0; a < 25; a++) {
     t = [pickShape(), pickShape(), pickShape()];
     if (t.some(si => fitsAnywhere(board, si))) break;
   }
-  return t.map(si => ({ si, tone: Math.floor(Math.random() * 3) }));
+  const need = goals ? goals.filter(g => g.got < g.need) : [];
+  return t.map(si => {
+    const p = { si };
+    if (need.length && Math.random() < .5) p.g = [Math.floor(Math.random() * SHAPES[si].cells.length), need[Math.floor(Math.random() * need.length)].k];
+    return p;
+  });
+}
+// Joias level n: a symmetric pattern of blocks already on the board, some holding gems, and the gems to collect.
+function woodLevel(n) {
+  const rng = mulberry32(n * 7919 + 13);
+  const kinds = Math.min(5, 2 + Math.floor((n - 1) / 3));
+  const order = [0, 1, 2, 3, 4];
+  for (let i = 4; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  const goals = order.slice(0, kinds).map(k => ({ k, need: Math.min(40, 5 + n * 2 + Math.floor(rng() * 4)), got: 0, vis: 0 }));
+  const board = new Int8Array(WN * WN);
+  const target = Math.min(30, 10 + n * 2);
+  let filled = 0;
+  for (let tries = 0; filled < target && tries < 400; tries++) {
+    const x = Math.floor(rng() * WN / 2), y = Math.floor(rng() * WN);
+    const a = y * WN + x, b = y * WN + WN - 1 - x;
+    if (board[a]) continue;
+    board[a] = board[b] = 1;
+    if (hasFullLine(board)) { board[a] = board[b] = 0; continue; }
+    filled += 2;
+  }
+  for (let i = 0; i < WN * WN; i++) if (board[i] && rng() < .4) board[i] = 2 + goals[Math.floor(rng() * goals.length)].k;
+  return { board, goals };
 }
 
 function woodSave() {
   if (!WG) return;
-  store.wood = WG.over ? null : { b: Array.from(WG.board), t: WG.tray, s: WG.score, k: WG.combo, m: WG.miss };
+  store.wood = WG.over || WG.won ? null : { mode: WG.mode, lv: WG.level, b: Array.from(WG.board), t: WG.tray, s: WG.score, k: WG.combo, m: WG.miss, g: WG.goals };
   save();
 }
-function woodNew() {
-  const board = new Int8Array(WN * WN);
-  WG = { board, tray: newTray(board), score: 0, combo: 0, miss: 0, over: false, drag: null, clearing: [], pops: [], shown: 0, time: 0, back: [] };
+function woodState(mode, level, board, tray, goals) {
+  return { mode, level, board, tray, goals, score: 0, combo: 0, miss: 0, over: false, won: false, drag: null,
+    parts: [], beams: [], pops: [], fly: [], shown: 0, time: 0, back: [], bump: 0 };
+}
+function woodNew(mode = WG ? WG.mode : 'classico') {
+  if (mode === 'joias') {
+    const lv = store.woodLevel || 1, { board, goals } = woodLevel(lv);
+    WG = woodState(mode, lv, board, newTray(board, goals), goals);
+  } else {
+    const board = new Int8Array(WN * WN);
+    WG = woodState('classico', 0, board, newTray(board, null), null);
+  }
   woodSave(); woodHud();
 }
 function woodLoad() {
   const sv = store.wood;
-  if (sv && sv.b && sv.b.length === WN * WN && sv.t) {
-    WG = { board: Int8Array.from(sv.b), tray: sv.t, score: sv.s || 0, combo: sv.k || 0, miss: sv.m || 0, over: false, drag: null, clearing: [], pops: [], shown: sv.s || 0, time: 0, back: [] };
-    woodHud();
-    if (!WG.tray.some(p => p && fitsAnywhere(WG.board, p.si))) woodGameOver();
-  } else woodNew();
+  if (!(sv && sv.b && sv.b.length === WN * WN && sv.t)) return false;
+  // saves from before the Joias mode kept a wood tone (1..3) in each cell
+  const board = Int8Array.from(sv.mode ? sv.b : sv.b.map(v => v ? 1 : 0));
+  const goals = sv.g ? sv.g.map(g => ({ k: g.k, need: g.need, got: g.got, vis: g.got })) : null;
+  WG = woodState(sv.mode || 'classico', sv.lv || 0, board, sv.t, goals);
+  WG.score = WG.shown = sv.s || 0; WG.combo = sv.k || 0; WG.miss = sv.m || 0;
+  woodHud();
+  if (!WG.tray.some(p => p && fitsAnywhere(WG.board, p.si))) woodGameOver();
+  return true;
 }
 function woodHud() {
-  $('w-best').textContent = Math.max(store.woodBest || 0, WG ? WG.score : 0);
+  if (!WG) return;
+  if (WG.mode === 'joias') {
+    $('w-title').textContent = 'Fase ' + WG.level;
+    $('w-sub').textContent = 'colete as joias';
+  } else {
+    $('w-title').textContent = 'Clássico';
+    $('w-sub').textContent = 'recorde ' + Math.max(store.woodBest || 0, WG.score);
+  }
 }
 
 function woodLayout() {
@@ -1417,17 +1480,19 @@ function woodLayout() {
   const dpr = Math.min(3, window.devicePixelRatio || 1);
   wcv.width = Math.round(WW * dpr); wcv.height = Math.round(WH * dpr);
   wctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const size = Math.min(WW - 16, WH * .64, 520);
+  hudH = clamp(WH * .12, 46, 74);
+  const size = Math.min(WW - 36, (WH - hudH) * .64, 500);
   bc = size / WN;
   bx = (WW - size) / 2;
-  const trayH = Math.min(size * .62, WH - size - 30);
-  by = Math.max(16, (WH - size - trayH) * .45);
-  trayY = by + size + trayH / 2 + 10;
-  traySlotW = WW / 3;
-  trayCell = Math.min(bc * .62, (traySlotW - 12) / 5, (trayH - 10) / 5);
+  const trayH = Math.max(40, Math.min(size * .5, WH - hudH - size - 30));
+  hudY = 4;
+  by = hudY + hudH + Math.max(16, (WH - hudY - hudH - size - trayH) * .4);
+  trayY = by + size + (WH - by - size) / 2 + 4;
+  traySlotW = Math.min(WW, size + 40) / 3;
+  trayCell = Math.min(bc * .55, (traySlotW - 12) / 5, (trayH - 10) / 5);
 }
 const trayCenter = i => [WW / 2 + (i - 1) * traySlotW, trayY];
-const trayCellFor = si => Math.min(bc * .72, (traySlotW - 14) / SHAPES[si].w, trayCell * 5 / SHAPES[si].h);
+const trayCellFor = si => Math.min(bc * .55, (traySlotW - 14) / SHAPES[si].w, trayCell * 5 / SHAPES[si].h);
 
 function dragPiecePos(d) {
   const sh = SHAPES[WG.tray[d.slot].si];
@@ -1452,7 +1517,7 @@ function linesFor(board, si, x, y) {
 }
 
 function woodPointer(e) {
-  if (!WG || WG.over) return;
+  if (!WG || WG.over || WG.won) return;
   const r = wcv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
   if (e.type === 'pointerdown') {
     for (let i = 0; i < 3; i++) {
@@ -1478,99 +1543,261 @@ function woodPointer(e) {
 }
 ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'].forEach(ev => wcv.addEventListener(ev, woodPointer));
 
+// where the counter of gem k sits in the top bar
+function gemSlot(k) {
+  const i = WG.goals.findIndex(g => g.k === k), n = WG.goals.length, gap = Math.min(64, (WW - 40) / n);
+  return [WW / 2 + (i - (n - 1) / 2) * gap, hudY + hudH * .38];
+}
 function woodPlace(slot, x, y) {
   const p = WG.tray[slot], sh = SHAPES[p.si];
   const { rows, cols } = linesFor(WG.board, p.si, x, y);
-  for (const [cx, cy] of sh.cells) WG.board[(y + cy) * WN + x + cx] = p.tone + 1;
+  sh.cells.forEach(([cx, cy], i) => { WG.board[(y + cy) * WN + x + cx] = p.g && p.g[0] === i ? 2 + p.g[1] : 1; });
   WG.tray[slot] = null;
   let pts = sh.cells.length;
   const n = rows.length + cols.length;
   const cx0 = bx + (x + sh.w / 2) * bc, cy0 = by + (y + sh.h / 2) * bc;
   if (n) {
     WG.combo++; WG.miss = 0;
+    const rainbow = WG.combo >= 8;
     const cleared = new Set();
-    rows.forEach(r => { for (let i = 0; i < WN; i++) cleared.add(r * WN + i); });
-    cols.forEach(c => { for (let i = 0; i < WN; i++) cleared.add(i * WN + c); });
-    cleared.forEach(k => { WG.clearing.push({ x: k % WN, y: Math.floor(k / WN), tone: WG.board[k] - 1, t: -((k % WN) + Math.floor(k / WN)) * .012 }); WG.board[k] = 0; });
+    rows.forEach(r => { for (let i = 0; i < WN; i++) cleared.add(r * WN + i); WG.beams.push({ row: r, t: 0, rainbow }); });
+    cols.forEach(c => { for (let i = 0; i < WN; i++) cleared.add(i * WN + c); WG.beams.push({ col: c, t: 0, rainbow }); });
+    cleared.forEach(k => {
+      const gx = k % WN, gy = Math.floor(k / WN), v = WG.board[k];
+      const px = bx + (gx + .5) * bc, py = by + (gy + .5) * bc, ang = Math.atan2(py - cy0, px - cx0) + (Math.random() - .5);
+      const sp = bc * (3 + Math.random() * 4);
+      WG.parts.push({ x: px, y: py, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - bc * 4, r: 0, vr: (Math.random() - .5) * 10,
+        s: bc, t: -((gx + gy) % WN) * .015, tint: rainbow ? RAINBOW[(gx + gy) % RAINBOW.length] : null });
+      if (v >= 2 && WG.goals) {
+        const goal = WG.goals.find(g => g.k === v - 2);
+        if (goal) { goal.got++; const [tx, ty] = gemSlot(v - 2); WG.fly.push({ k: v - 2, x: px, y: py, tx, ty, t: -.15 - WG.fly.length * .04 }); }
+      }
+      WG.board[k] = 0;
+    });
     const gain = 10 * n * n + 10 * (WG.combo - 1) * n;
     pts += gain;
-    WG.pops.push({ text: '+' + (gain + sh.cells.length), x: cx0, y: cy0, t: 0, big: true });
-    if (WG.combo > 1) WG.pops.push({ text: 'Combo ' + WG.combo, x: WW / 2, y: by - 4 + bc * 1.2, t: -.1, combo: true });
-    if (WG.board.every(v => !v)) { pts += 300; WG.pops.push({ text: 'Tabuleiro limpo! +300', x: WW / 2, y: by + bc * 4, t: -.2, combo: true }); }
-    sfx('clear'); buzz(20);
+    WG.pops.push({ text: '+' + (gain + sh.cells.length), x: cx0, y: cy0, t: 0, kind: 'score' });
+    WG.pops = WG.pops.filter(q => q.kind === 'score');
+    const praise = n >= 4 ? 'Fantástico!' : n === 3 ? 'Incrível!' : n === 2 ? 'Ótimo!' : WG.combo >= 3 ? 'Muito bem!' : '';
+    if (praise) WG.pops.push({ text: praise, x: WW / 2, y: by + bc * 3.2, t: -.05, kind: 'praise' });
+    if (rainbow) WG.pops.push({ text: 'Combo ' + WG.combo, x: WW / 2, y: by + bc * 4.6, t: -.12, kind: 'rainbow' });
+    else if (WG.combo > 1) WG.pops.push({ text: WG.combo + 'X COMBO!', x: WW / 2, y: by + bc * 4.4, t: -.12, kind: 'combo' });
+    if (WG.board.every(v => !v)) { pts += 300; WG.pops.push({ text: 'Tabuleiro limpo! +300', x: WW / 2, y: by + bc * 5.8, t: -.3, kind: 'praise' }); }
+    WG.bump = 1;
+    sfx('clear'); buzz(n > 1 ? 35 : 20);
   } else {
     WG.miss++; if (WG.miss >= 3) WG.combo = 0;
     sfx('place');
   }
   WG.score += pts;
-  if (WG.score > (store.woodBest || 0)) store.woodBest = WG.score;
-  if (WG.tray.every(t => !t)) WG.tray = newTray(WG.board);
+  if (WG.mode === 'classico' && WG.score > (store.woodBest || 0)) store.woodBest = WG.score;
+  if (WG.tray.every(t => !t)) WG.tray = newTray(WG.board, WG.goals);
+  if (WG.goals && WG.goals.every(g => g.got >= g.need)) { WG.won = true; setTimeout(woodWin, 1200); }
   woodSave(); woodHud();
-  if (!WG.tray.some(t => t && fitsAnywhere(WG.board, t.si))) setTimeout(woodGameOver, 700);
+  if (!WG.won && !WG.tray.some(t => t && fitsAnywhere(WG.board, t.si))) setTimeout(woodGameOver, 700);
+}
+function woodWin() {
+  if (!WG || !WG.won) return;
+  store.woodLevel = WG.level + 1; save(); sfx('win');
+  modal('Fase concluída!', `Você coletou todas as joias da fase ${WG.level}.`, [
+    { label: 'Fase ' + store.woodLevel, fn: () => woodNew('joias') },
+    { label: 'Biblioteca', cls: 'ghost', fn: showHome },
+  ]);
 }
 function woodGameOver() {
-  if (!WG || WG.over) return;
+  if (!WG || WG.over || WG.won) return;
   WG.over = true; sfx('lose'); woodSave();
+  if (WG.mode === 'joias') {
+    const left = WG.goals.reduce((a, g) => a + Math.max(0, g.need - g.got), 0);
+    modal('Sem espaço!', `Faltaram ${left} joias para passar da fase ${WG.level}.`, [
+      { label: 'Tentar de novo', fn: () => woodNew('joias') },
+      { label: 'Biblioteca', cls: 'ghost', fn: showHome },
+    ]);
+    return;
+  }
   const best = store.woodBest || 0;
   modal('Sem espaço!', WG.score >= best && WG.score > 0
     ? `Novo recorde: ${WG.score} pontos!`
     : `Você fez ${WG.score} pontos. Seu recorde é ${best}.`, [
-    { label: 'Jogar de novo', fn: woodNew },
+    { label: 'Jogar de novo', fn: () => woodNew('classico') },
     { label: 'Biblioteca', cls: 'ghost', fn: showHome },
   ]);
 }
 
-function drawBlock(c, x, y, s, tone, alpha = 1) {
-  const t = WOOD_TONES[tone] || WOOD_TONES[0], g = s * .06;
+/* ---------- drawing ---------- */
+function shadeHex(hex, f) {
+  const n = parseInt(hex.slice(1), 16), t = f < 0 ? 0 : 255, p = Math.abs(f);
+  const ch = s => Math.round(((n >> s) & 255) + (t - ((n >> s) & 255)) * p);
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+}
+// Golden wood block with a bevel; tint swaps the wood for a bright color (rainbow combo).
+function drawBlock(c, x, y, s, alpha = 1, tint = null) {
+  const g = s * .035, b = s * .1;
+  const dark = tint ? shadeHex(tint, -.35) : '#B0661F', light = tint ? shadeHex(tint, .5) : '#FFE6A6';
   c.save(); c.globalAlpha = alpha;
-  rr(c, x + g, y + g, s - 2 * g, s - 2 * g, s * .14); c.fillStyle = t.d; c.fill();
-  rr(c, x + g, y + g, s - 2 * g, s - 2 * g - s * .07, s * .14); c.fillStyle = t.c; c.fill();
-  rr(c, x + s * .18, y + s * .16, s * .64, s * .56, s * .08); c.fillStyle = t.l; c.fill();
-  c.strokeStyle = 'rgba(150,95,45,.28)'; c.lineWidth = Math.max(1, s * .03);
-  for (let i = 0; i < 2; i++) {
-    c.beginPath(); c.moveTo(x + s * .24, y + s * (.32 + i * .2));
-    c.quadraticCurveTo(x + s * .5, y + s * (.26 + i * .2), x + s * .76, y + s * (.34 + i * .2)); c.stroke();
+  c.fillStyle = dark; c.fillRect(x + g, y + g, s - 2 * g, s - 2 * g);
+  c.fillStyle = light;
+  c.beginPath(); c.moveTo(x + g, y + g); c.lineTo(x + s - g, y + g); c.lineTo(x + s - g - b, y + g + b);
+  c.lineTo(x + g + b, y + s - g - b); c.lineTo(x + g, y + s - g); c.closePath(); c.fill();
+  const f = c.createLinearGradient(x, y, x + s, y + s);
+  if (tint) { f.addColorStop(0, shadeHex(tint, .2)); f.addColorStop(1, tint); }
+  else { f.addColorStop(0, '#FCD27A'); f.addColorStop(1, '#EDA948'); }
+  c.fillStyle = f; c.fillRect(x + g + b, y + g + b, s - 2 * (g + b), s - 2 * (g + b));
+  if (!tint) {
+    c.strokeStyle = 'rgba(176,110,40,.32)'; c.lineWidth = Math.max(.8, s * .025);
+    for (let i = 0; i < 3; i++) {
+      const yy = y + s * (.3 + i * .18);
+      c.beginPath(); c.moveTo(x + s * .2, yy); c.bezierCurveTo(x + s * .4, yy - s * .05, x + s * .6, yy + s * .05, x + s * .8, yy - s * .01); c.stroke();
+    }
   }
   c.restore();
 }
-function drawPiece(c, si, tone, left, top, s, alpha) {
-  for (const [cx, cy] of SHAPES[si].cells) drawBlock(c, left + cx * s, top + cy * s, s, tone, alpha);
+function drawGem(c, k, cx, cy, r, alpha = 1) {
+  const gm = GEMS[k];
+  c.save(); c.globalAlpha = alpha; c.translate(cx, cy);
+  c.beginPath();
+  if (k === 0 || k === 3) {
+    const n = k === 0 ? 6 : 5;
+    for (let i = 0; i < n; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / n; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+  } else if (k === 1) { c.moveTo(0, -r); c.lineTo(r * .85, 0); c.lineTo(0, r); c.lineTo(-r * .85, 0); }
+  else if (k === 2) {
+    c.moveTo(0, r * .85); c.bezierCurveTo(-r * 1.3, -r * .1, -r * .6, -r * 1.1, 0, -r * .45);
+    c.bezierCurveTo(r * .6, -r * 1.1, r * 1.3, -r * .1, 0, r * .85);
+  } else { c.moveTo(0, -r); c.bezierCurveTo(r * .2, -r * .5, r * .85, 0, r * .75, r * .35); c.arc(0, r * .25, r * .75, .13, Math.PI - .13); c.bezierCurveTo(-r * .85, 0, -r * .2, -r * .5, 0, -r); }
+  c.closePath();
+  const f = c.createLinearGradient(-r, -r, r, r); f.addColorStop(0, shadeHex(gm.c, .45)); f.addColorStop(.5, gm.c); f.addColorStop(1, gm.d);
+  c.fillStyle = f; c.fill();
+  c.lineWidth = Math.max(1, r * .14); c.strokeStyle = gm.d; c.stroke();
+  c.beginPath(); c.ellipse(-r * .3, -r * .35, r * .22, r * .12, -.6, 0, 7); c.fillStyle = 'rgba(255,255,255,.75)'; c.fill();
+  c.restore();
+}
+function drawPiece(c, p, left, top, s, alpha) {
+  SHAPES[p.si].cells.forEach(([cx, cy], i) => {
+    drawBlock(c, left + cx * s, top + cy * s, s, alpha);
+    if (p.g && p.g[0] === i) drawGem(c, p.g[1], left + (cx + .5) * s, top + (cy + .5) * s, s * .3, alpha);
+  });
+}
+function drawCrown(c, cx, cy, s) {
+  c.beginPath(); c.moveTo(cx - s, cy + s * .55); c.lineTo(cx - s, cy - s * .35); c.lineTo(cx - s * .45, cy + s * .05);
+  c.lineTo(cx, cy - s * .6); c.lineTo(cx + s * .45, cy + s * .05); c.lineTo(cx + s, cy - s * .35); c.lineTo(cx + s, cy + s * .55); c.closePath();
+  c.fillStyle = '#7A4518'; c.fill();
+}
+function hudBox(c, cx, cy, w, h, text, fancy) {
+  rr(c, cx - w / 2, cy - h / 2 + 2, w, h, h * .22); c.fillStyle = 'rgba(80,40,10,.35)'; c.fill();
+  rr(c, cx - w / 2, cy - h / 2, w, h, h * .22); c.fillStyle = '#7B4419'; c.fill();
+  rr(c, cx - w / 2 + 2, cy - h / 2 + 2, w - 4, h - 4, h * .18); c.fillStyle = '#5E3010'; c.fill();
+  if (fancy) {
+    rr(c, cx - w / 2 + 1, cy - h / 2 + 1, w - 2, h - 2, h * .2); c.strokeStyle = '#F2C14E'; c.lineWidth = 2; c.stroke();
+    c.fillStyle = 'rgba(255,214,120,.7)';
+    for (let i = 0; i < 6; i++) { const t = (WG.time * .4 + i / 6) % 1; c.fillRect(cx - w * .42 + t * w * .84, cy + Math.sin(i * 2.3) * h * .28, 2, 2); }
+  }
+  c.font = `800 ${Math.round(h * .62)}px "Baloo 2", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillStyle = '#FFF4DE'; c.fillText(text, cx, cy + 1);
+}
+function popText(c, p, size) {
+  c.font = `900 ${Math.round(size)}px "Baloo 2", sans-serif`;
+  c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+  const w = c.measureText(p.text).width;
+  if (p.kind === 'combo') {
+    c.rotate(-.18);
+    rr(c, -w / 2 - size * .5, -size * .62, w + size, size * 1.24, size * .3); c.fillStyle = '#B81E1E'; c.fill();
+    rr(c, -w / 2 - size * .5, -size * .66, w + size, size * 1.18, size * .3); c.fillStyle = '#E8392F'; c.fill();
+    c.fillStyle = '#FFF6E8'; c.fillText(p.text, 0, size * .02);
+    return;
+  }
+  const f = c.createLinearGradient(-w / 2, 0, w / 2, 0);
+  if (p.kind === 'rainbow') RAINBOW.forEach((col, i) => f.addColorStop(i / (RAINBOW.length - 1), col));
+  else { c.rotate(p.kind === 'praise' ? -.12 : 0); f.addColorStop(0, '#FFF6B0'); f.addColorStop(1, '#FFB81C'); }
+  c.lineWidth = size * .26; c.strokeStyle = p.kind === 'rainbow' ? '#3A1A6A' : '#6B330C'; c.strokeText(p.text, 0, 0);
+  c.fillStyle = p.kind === 'score' ? '#FFF4DE' : f; c.fillText(p.text, 0, 0);
 }
 
 function woodDraw(dt) {
   const c = wctx;
   WG.time += dt;
   c.clearRect(0, 0, WW, WH);
-  const size = bc * WN, fr = bc * .28;
+  const size = bc * WN, fr = bc * .32;
+  // top bar: score + combo, or the gems still to collect
+  if (WG.mode === 'joias') {
+    WG.goals.forEach(g => {
+      const [gx, gy] = gemSlot(g.k), left = Math.max(0, g.need - g.vis);
+      drawGem(c, g.k, gx, gy, hudH * .2, left ? 1 : .5);
+      c.font = `800 ${Math.round(hudH * .26)}px "Baloo 2", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.lineWidth = 3; c.strokeStyle = '#6B330C'; c.lineJoin = 'round';
+      const t = left ? String(left) : '✓';
+      c.strokeText(t, gx, gy + hudH * .4); c.fillStyle = '#FFF4DE'; c.fillText(t, gx, gy + hudH * .4);
+    });
+  } else {
+    const bw = Math.min(124, WW * .3), bh = hudH * .46, y0 = hudY + hudH * .64;
+    drawCrown(c, WW / 2 - bw * .62, hudY + hudH * .2, hudH * .13);
+    c.font = `800 ${Math.round(hudH * .2)}px "Baloo 2", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#7A4518'; c.fillText('Combo', WW / 2 + bw * .62, hudY + hudH * .22);
+    hudBox(c, WW / 2 - bw * .62, y0, bw, bh, String(Math.floor(WG.shown)), false);
+    const sc = 1 + WG.bump * .15;
+    c.save(); c.translate(WW / 2 + bw * .62, y0); c.scale(sc, sc);
+    hudBox(c, 0, 0, bw, bh, String(WG.combo), true); c.restore();
+  }
+  WG.bump = Math.max(0, WG.bump - dt * 4);
   // frame + board
-  rr(c, bx - fr, by - fr + 6, size + fr * 2, size + fr * 2, fr * 1.2); c.fillStyle = '#3F2510'; c.fill();
-  const g = c.createLinearGradient(bx, by - fr, bx + size, by + size);
-  g.addColorStop(0, '#A06A3A'); g.addColorStop(1, '#8A5A31');
-  rr(c, bx - fr, by - fr, size + fr * 2, size + fr * 2, fr * 1.2); c.fillStyle = g; c.fill();
-  rr(c, bx - 3, by - 3, size + 6, size + 6, fr * .6); c.fillStyle = '#4E2F15'; c.fill();
+  rr(c, bx - fr, by - fr + 6, size + fr * 2, size + fr * 2, fr * .9); c.fillStyle = 'rgba(90,45,10,.35)'; c.fill();
+  const g = c.createLinearGradient(bx, by - fr, bx, by + size + fr);
+  g.addColorStop(0, '#F0BE7E'); g.addColorStop(1, '#D79A55');
+  rr(c, bx - fr, by - fr, size + fr * 2, size + fr * 2, fr * .9); c.fillStyle = g; c.fill();
+  rr(c, bx - fr + 2, by - fr + 2, size + fr * 2 - 4, size + fr * 2 - 4, fr * .8); c.strokeStyle = 'rgba(255,240,205,.6)'; c.lineWidth = 2; c.stroke();
+  rr(c, bx - 3, by - 3, size + 6, size + 6, 4); c.fillStyle = '#3A1906'; c.fill();
   // ghost of the dragged piece
   let ghost = null, lines = { rows: [], cols: [] };
   if (WG.drag) {
     const p = WG.tray[WG.drag.slot], [gxx, gyy] = dropCell(WG.drag);
-    if (fits(WG.board, p.si, gxx, gyy)) { ghost = { si: p.si, x: gxx, y: gyy, tone: p.tone }; lines = linesFor(WG.board, p.si, gxx, gyy); }
+    if (fits(WG.board, p.si, gxx, gyy)) { ghost = { p, x: gxx, y: gyy }; lines = linesFor(WG.board, p.si, gxx, gyy); }
   }
   for (let y = 0; y < WN; y++) for (let x = 0; x < WN; x++) {
     const v = WG.board[y * WN + x], px = bx + x * bc, py = by + y * bc;
-    rr(c, px + bc * .05, py + bc * .05, bc * .9, bc * .9, bc * .12);
-    c.fillStyle = (x + y) % 2 ? '#5B381B' : '#623D1E'; c.fill();
+    c.fillStyle = '#6A3514'; c.fillRect(px + .75, py + .75, bc - 1.5, bc - 1.5);
+    c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(px + .75, py + .75, bc - 1.5, bc * .08);
     if (v) {
-      const hl = lines.rows.includes(y) || lines.cols.includes(x);
-      drawBlock(c, px, py, bc, v - 1);
-      if (hl) { rr(c, px + bc * .06, py + bc * .06, bc * .88, bc * .88, bc * .14); c.fillStyle = `rgba(255,240,200,${.35 + .2 * Math.sin(WG.time * 10)})`; c.fill(); }
+      drawBlock(c, px, py, bc);
+      if (v >= 2) drawGem(c, v - 2, px + bc / 2, py + bc / 2, bc * .3);
+      if (lines.rows.includes(y) || lines.cols.includes(x)) {
+        c.fillStyle = `rgba(255,248,210,${.3 + .2 * Math.sin(WG.time * 10)})`; c.fillRect(px, py, bc, bc);
+      }
     }
   }
-  if (ghost) drawPiece(c, ghost.si, ghost.tone, bx + ghost.x * bc, by + ghost.y * bc, bc, .4);
-  // clearing animation
-  for (let i = WG.clearing.length - 1; i >= 0; i--) {
-    const k = WG.clearing[i]; k.t += dt;
-    if (k.t >= .35) { WG.clearing.splice(i, 1); continue; }
-    const t = Math.max(0, k.t) / .35, s = bc * (1 - t * .6);
-    drawBlock(c, bx + k.x * bc + (bc - s) / 2, by + k.y * bc + (bc - s) / 2 - t * bc * .3, s, k.tone, 1 - t);
+  if (ghost) {
+    SHAPES[ghost.p.si].cells.forEach(([cx, cy]) => {
+      const px = bx + (ghost.x + cx) * bc, py = by + (ghost.y + cy) * bc;
+      c.fillStyle = 'rgba(40,16,2,.55)'; c.fillRect(px + bc * .1, py + bc * .1, bc * .8, bc * .8);
+      c.strokeStyle = 'rgba(255,214,140,.55)'; c.lineWidth = 2; c.strokeRect(px + bc * .14, py + bc * .14, bc * .72, bc * .72);
+    });
+  }
+  // line clear: a glowing beam along each cleared row/column
+  for (let i = WG.beams.length - 1; i >= 0; i--) {
+    const bm = WG.beams[i]; bm.t += dt;
+    if (bm.t > .6) { WG.beams.splice(i, 1); continue; }
+    const a = 1 - bm.t / .6, grow = Math.min(1, bm.t / .12), th = bc * (.6 + .5 * grow);
+    c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = a;
+    const isRow = bm.row !== undefined, mid = isRow ? by + (bm.row + .5) * bc : bx + (bm.col + .5) * bc;
+    const lg = isRow ? c.createLinearGradient(0, mid - th, 0, mid + th) : c.createLinearGradient(mid - th, 0, mid + th, 0);
+    const core = bm.rainbow ? RAINBOW[Math.floor(WG.time * 12) % RAINBOW.length] : '#FFD866';
+    lg.addColorStop(0, 'rgba(255,200,80,0)'); lg.addColorStop(.5, core); lg.addColorStop(1, 'rgba(255,200,80,0)');
+    c.fillStyle = lg;
+    if (isRow) c.fillRect(bx - fr, mid - th, size + fr * 2, th * 2); else c.fillRect(mid - th, by - fr, th * 2, size + fr * 2);
+    c.fillStyle = '#FFFBE6';
+    for (let k = 0; k < 10; k++) {
+      const u = ((k * 37) % 100) / 100 * size, off = Math.sin(k * 5.1 + bm.t * 20) * th * .5;
+      if (isRow) c.fillRect(bx + u, mid + off, 3, 3); else c.fillRect(mid + off, by + u, 3, 3);
+    }
+    c.restore();
+  }
+  // blocks flying away
+  for (let i = WG.parts.length - 1; i >= 0; i--) {
+    const q = WG.parts[i]; q.t += dt;
+    if (q.t > .9) { WG.parts.splice(i, 1); continue; }
+    if (q.t < 0) { drawBlock(c, q.x - q.s / 2, q.y - q.s / 2, q.s, 1, q.tint); continue; }
+    q.x += q.vx * dt; q.y += q.vy * dt; q.vy += bc * 18 * dt; q.r += q.vr * dt;
+    const s = q.s * (1 - q.t * .45);
+    c.save(); c.translate(q.x, q.y); c.rotate(q.r);
+    drawBlock(c, -s / 2, -s / 2, s, Math.max(0, 1 - q.t / .9), q.tint); c.restore();
   }
   // tray
   for (let i = 0; i < 3; i++) {
@@ -1582,33 +1809,37 @@ function woodDraw(dt) {
     const usable = fitsAnywhere(WG.board, p.si);
     if (back) {
       back.t += dt / .18; const t = easeInOut(Math.min(1, back.t)), s = lerp(bc, tcs, t);
-      drawPiece(c, p.si, p.tone, lerp(back.x, cx - sh.w * tcs / 2, t), lerp(back.y, cy - sh.h * tcs / 2, t), s, 1);
+      drawPiece(c, p, lerp(back.x, cx - sh.w * tcs / 2, t), lerp(back.y, cy - sh.h * tcs / 2, t), s, 1);
       if (back.t >= 1) WG.back.splice(WG.back.indexOf(back), 1);
-    } else drawPiece(c, p.si, p.tone, cx - sh.w * tcs / 2, cy - sh.h * tcs / 2, tcs, usable ? 1 : .35);
+    } else drawPiece(c, p, cx - sh.w * tcs / 2, cy - sh.h * tcs / 2, tcs, usable ? 1 : .35);
   }
   if (WG.drag) {
     const p = WG.tray[WG.drag.slot], pos = dragPiecePos(WG.drag);
-    c.save(); c.shadowColor = 'rgba(0,0,0,.35)'; c.shadowBlur = 12; c.shadowOffsetY = 8;
-    drawPiece(c, p.si, p.tone, pos.left, pos.top, bc, 1); c.restore();
+    c.save(); c.shadowColor = 'rgba(60,25,0,.4)'; c.shadowBlur = 12; c.shadowOffsetY = 8;
+    drawPiece(c, p, pos.left, pos.top, bc, 1); c.restore();
   }
-  // score popups
+  // gems flying to their counters
+  for (let i = WG.fly.length - 1; i >= 0; i--) {
+    const f = WG.fly[i]; f.t += dt;
+    const t = clamp(f.t / .6, 0, 1), e = easeInOut(t);
+    const x = lerp(f.x, f.tx, e) + Math.sin(t * Math.PI) * bc * 1.2, y = lerp(f.y, f.ty, e) - Math.sin(t * Math.PI) * bc;
+    drawGem(c, f.k, x, y, bc * (.3 + .15 * Math.sin(t * Math.PI)));
+    if (t >= 1) { WG.fly.splice(i, 1); const g = WG.goals.find(q => q.k === f.k); if (g) g.vis++; sfx('pop'); }
+  }
+  // praise, combo and score popups
   for (let i = WG.pops.length - 1; i >= 0; i--) {
     const p = WG.pops[i]; p.t += dt;
-    if (p.t > 1.1) { WG.pops.splice(i, 1); continue; }
+    const life = p.kind === 'score' ? 1 : 1.3;
+    if (p.t > life) { WG.pops.splice(i, 1); continue; }
     if (p.t < 0) continue;
-    const a = p.t < .8 ? 1 : 1 - (p.t - .8) / .3, sc = p.t < .15 ? easeOutBack(p.t / .15) : 1;
-    c.save(); c.globalAlpha = Math.max(0, a); c.translate(p.x, p.y - p.t * 40); c.scale(sc, sc);
-    c.font = `800 ${Math.round(bc * (p.combo ? .62 : .55))}px "Baloo 2", sans-serif`;
-    c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
-    c.lineWidth = 5; c.strokeStyle = '#4A2D14'; c.strokeText(p.text, 0, 0);
-    c.fillStyle = p.combo ? '#FFC83D' : '#FFF1DC'; c.fillText(p.text, 0, 0);
+    const a = p.t < life - .3 ? 1 : (life - p.t) / .3, sc = p.t < .2 ? easeOutBack(p.t / .2) : 1;
+    c.save(); c.globalAlpha = Math.max(0, a); c.translate(p.x, p.y - (p.kind === 'score' ? p.t * 40 : p.t * 12)); c.scale(sc, sc);
+    popText(c, p, bc * (p.kind === 'score' ? .5 : p.kind === 'rainbow' ? .9 : p.kind === 'combo' ? .5 : .75));
     c.restore();
   }
   // animated score counter
-  if (WG.shown < WG.score) {
-    WG.shown = Math.min(WG.score, WG.shown + Math.max(1, (WG.score - WG.shown) * dt * 8));
-    $('w-score').textContent = Math.floor(WG.shown);
-  } else $('w-score').textContent = WG.score;
+  if (WG.shown < WG.score) WG.shown = Math.min(WG.score, WG.shown + Math.max(1, (WG.score - WG.shown) * dt * 8));
+  else WG.shown = WG.score;
 }
 function woodFrame(t) {
   if (!woodRunning) return;
@@ -1616,20 +1847,24 @@ function woodFrame(t) {
   woodDraw(dt);
   requestAnimationFrame(woodFrame);
 }
+function woodChoose(restart) {
+  const lv = store.woodLevel || 1;
+  modal(restart ? 'Começar de novo?' : 'Blocos de Madeira', (restart ? `Você perde a partida atual. ` : '') +
+    'Joias: limpe linhas com as joias pedidas para passar de fase. Clássico: sem fim, faça o máximo de pontos.', [
+    { label: 'Fase ' + lv, fn: () => woodNew('joias') },
+    { label: 'Clássico', cls: 'ghost', fn: () => woodNew('classico') },
+    ...(restart ? [{ label: 'Continuar jogando', cls: 'ghost', fn: () => {} }] : []),
+  ]);
+}
 function openWood() {
   $('home').hidden = true; $('wood').hidden = false;
-  woodLayout(); woodLoad();
+  woodLayout();
+  if (!woodLoad()) { woodNew('classico'); woodChoose(false); }
   if (!woodRunning) { woodRunning = true; wLast = performance.now(); requestAnimationFrame(woodFrame); }
 }
 $('card-wood').addEventListener('click', () => { sfx('tap'); openWood(); });
 $('w-back').addEventListener('click', showHome);
-$('w-restart').addEventListener('click', () => {
-  if (!WG) return;
-  modal('Começar de novo?', `Você perde os ${WG.score} pontos desta partida.`, [
-    { label: 'Começar de novo', fn: woodNew },
-    { label: 'Continuar jogando', cls: 'ghost', fn: () => {} },
-  ]);
-});
+$('w-restart').addEventListener('click', () => { if (WG) woodChoose(true); });
 window.addEventListener('resize', () => { if (!$('wood').hidden) woodLayout(); });
 /* ================= Chuva de Blocos ================= */
 const TW = 10, TH = 20;
